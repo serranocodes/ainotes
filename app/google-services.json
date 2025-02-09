@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1078162940161",
+    "project_id": "ainotesapp-f46d6",
+    "storage_bucket": "ainotesapp-f46d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1078162940161:android:8125f0b3205662c94abb00",
+        "android_client_info": {
+          "package_name": "com.example.ainoteapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-ztjyQPZpAKBxFSiJSALiE0EMyFaA3LU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1078162940161:android:cba55d7724ccaddb4abb00",
+        "android_client_info": {
+          "package_name": "com.example.ainotes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-ztjyQPZpAKBxFSiJSALiE0EMyFaA3LU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
