@@ -1,12 +1,14 @@
 package com.example.ainotes.ui
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ainotes.ui.screens.*
 import com.example.ainotes.viewmodel.AuthViewModel
+import com.example.ainotes.viewmodel.SettingsViewModel
 
 @Composable
 fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
@@ -61,8 +63,9 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             MainScreen(navController = navController)
         }
 
-        // Settings Screen
         composable("settings") {
+            val settingsViewModel: SettingsViewModel = viewModel() // Provide the ViewModel
+
             SettingsScreen(
                 onBackPressed = { navController.popBackStack() },
                 onLogoutClicked = {
@@ -70,7 +73,8 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                     navController.navigate("login") {
                         popUpTo("main") { inclusive = true } // Clear backstack to ensure logout
                     }
-                }
+                },
+                viewModel = settingsViewModel // Pass ViewModel to SettingsScreen
             )
         }
     }

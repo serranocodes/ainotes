@@ -68,21 +68,6 @@ fun SignUpOptionsScreen(navController: NavController) {
                 Text("Sign Up with Google", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
             }
 
-            // Button: Sign Up with Facebook
-            Button(
-                onClick = {
-                    // Handle Facebook sign-up logic
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .height(50.dp)
-            ) {
-                Text("Sign Up with Facebook", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
-            }
-
             // Button: Sign Up with Other Email
             Button(
                 onClick = {

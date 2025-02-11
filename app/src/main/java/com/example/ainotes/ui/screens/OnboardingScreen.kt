@@ -28,7 +28,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     // List of onboarding screens
     val onboardingScreens = listOf(
         "Note-Taking Made Simple",
-        "Organize Your Ideas Effortlessly",
+        "Voice Your Ideas",
         "Stay Synced Across Devices",
         "Get Started Today!"
     )
