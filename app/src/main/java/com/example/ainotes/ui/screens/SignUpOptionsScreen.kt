@@ -65,7 +65,7 @@ fun SignUpOptionsScreen(navController: NavController) {
                     .padding(vertical = 8.dp)
                     .height(50.dp)
             ) {
-                Text("Sign Up with Google", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
+                Text("Sign up with Google", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
             }
 
             // Button: Sign Up with Other Email
@@ -83,7 +83,7 @@ fun SignUpOptionsScreen(navController: NavController) {
                     .padding(vertical = 8.dp)
                     .height(50.dp)
             ) {
-                Text("Sign Up with OTHER EMAIL", fontWeight = FontWeight.Bold)
+                Text("Sign Up with email", fontWeight = FontWeight.Bold)
             }
         }
     }
