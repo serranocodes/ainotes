@@ -25,79 +25,174 @@ fun SettingsScreen(
 ) {
     val userData by viewModel.userData.collectAsState()
     val appVersion by viewModel.appVersion.collectAsState()
+    val availableLanguages by viewModel.availableLanguages.collectAsState()
+
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF121212) // Dark background
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                // Top Bar
-                Row(
+        if (userData == null) {
+            // 🔥 Show loading indicator while fetching data
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        } else {
+            Column {
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    IconButton(onClick = { onBackPressed() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                    item {
+                        // Top Bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { onBackPressed() }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
+                            }
+                            Text(
+                                text = "Settings",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(48.dp))
+                        }
+                    }
+
+                    item { SectionHeader("USAGE") }
+                    item { SettingsItem(title = "Usage: 0 of 30 mins", subtitle = "Welcome to NotesApp!") }
+                    item { Divider(color = Color.Gray, thickness = 1.dp) }
+
+                    item { SettingsItem(title = "Version Type: Free") }
+                    item { SettingsItem(title = "Version: $appVersion") }
+                    item { Divider(color = Color.Gray, thickness = 1.dp) }
+
+                    item { SectionHeader("PERSONAL INFORMATION") }
+                    item { SettingsItem(title = "Name", value = userData?.name ?: "...") }
+                    item { SettingsItem(title = "Email", value = userData?.email ?: "...") }
+                    item { Divider(color = Color.Gray, thickness = 1.dp) }
+
+                    item { SectionHeader("PREFERENCES") }
+
+                    // 🔥 Clicking opens language selection
+                    item {
+                        SettingsItem(
+                            title = "Transcription Language",
+                            value = userData?.transcriptionLanguage ?: "...",
+                            onClick = { showLanguageDialog = true }
                         )
                     }
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White
+
+                    // Toggle Preferences
+                    item { ToggleItem("Auto Delete Notes", userData?.autoDeleteNotes ?: true) { viewModel.updatePreference("autoDeleteNotes", it) } }
+                    item { ToggleItem("Category Detection", userData?.categoryDetection ?: true) { viewModel.updatePreference("categoryDetection", it) } }
+                    item { ToggleItem("Smart Summaries", userData?.smartSummaries ?: true) { viewModel.updatePreference("smartSummaries", it) } }
+                    item { ToggleItem("Enable Transcription", userData?.transcriptionEnabled ?: true) { viewModel.updatePreference("transcriptionEnabled", it) } }
+
+                    item { Divider(color = Color.Gray, thickness = 1.dp) }
+
+                    item { SectionHeader("HELP") }
+                    item { SettingsItem(title = "Privacy Policy") }
+                    item { SettingsItem(title = "Terms of Use") }
+                    item { Divider(color = Color.Gray, thickness = 1.dp) }
+
+                    // 🔥 Make Logout Red
+                    item {
+                        SettingsItem(
+                            title = "Log Out",
+                            textColor = Color.Red, // 🔥 Logout is red
+                            onClick = onLogoutClicked
+                        )
+                    }
+                }
+
+                // 🔥 Move Dialog OUTSIDE LazyColumn to fix the error
+                if (showLanguageDialog) {
+                    LanguageSelectionDialog(
+                        availableLanguages = availableLanguages,
+                        selectedLanguage = userData?.transcriptionLanguage ?: "English",
+                        onDismiss = { showLanguageDialog = false },
+                        onLanguageSelected = {
+                            viewModel.updateTranscriptionLanguage(it)
+                            showLanguageDialog = false
+                        }
                     )
-                    Spacer(modifier = Modifier.width(48.dp))
                 }
             }
-
-            item { SectionHeader("USAGE") }
-            item { SettingsItem(title = "Usage: 0 of 30 mins", subtitle = "Welcome to NotesApp!") }
-            item { Divider(color = Color.Gray, thickness = 1.dp) }
-
-            item { SettingsItem(title = "Version Type: Free") }
-            item { SettingsItem(title = "Version: $appVersion") }
-            item { Divider(color = Color.Gray, thickness = 1.dp) }
-
-            item { SectionHeader("PERSONAL INFORMATION") }
-            item { SettingsItem(title = "Name", value = userData.name) }
-            item { SettingsItem(title = "Email", value = userData.email) }
-            item { Divider(color = Color.Gray, thickness = 1.dp) }
-
-            item { SectionHeader("PREFERENCES") }
-            item { SettingsItem(title = "Transcription Language", value = userData.transcriptionLanguage) }
-
-            // 🔥 Toggles Section with Smaller Switches
-            item { ToggleItem("Auto Delete Notes", userData.autoDeleteNotes) { viewModel.updatePreference("autoDeleteNotes", it) } }
-            item { ToggleItem("Category Detection", userData.categoryDetection) { viewModel.updatePreference("categoryDetection", it) } }
-            item { ToggleItem("Smart Summaries", userData.smartSummaries) { viewModel.updatePreference("smartSummaries", it) } }
-            item { ToggleItem("Enable Transcription", userData.transcriptionEnabled) { viewModel.updatePreference("transcriptionEnabled", it) } }
-
-            // 🔥 Theme Switch (Light/Dark Mode)
-            item {
-                ThemeToggleItem("Theme", userData.theme) { viewModel.updatePreference("theme", it) }
-            }
-
-            item { Divider(color = Color.Gray, thickness = 1.dp) }
-
-            item { SectionHeader("HELP") }
-            item { SettingsItem(title = "Privacy Policy") }
-            item { SettingsItem(title = "Terms of Use") }
-            item { Divider(color = Color.Gray, thickness = 1.dp) }
-
-            item { SettingsItem(title = "Log Out", textColor = Color.White, onClick = onLogoutClicked) }
         }
     }
+}
+
+@Composable
+fun LanguageSelectionDialog(
+    availableLanguages: List<String>,
+    selectedLanguage: String,
+    onDismiss: () -> Unit,
+    onLanguageSelected: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        title = {
+            Text("Choose Transcription Language", color = MaterialTheme.colorScheme.onSurface)
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFFFFFFF), shape = MaterialTheme.shapes.medium)
+                    .padding(16.dp)
+            ) {
+                LazyColumn {
+                    items(availableLanguages) { language ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable { onLanguageSelected(language) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = language == selectedLanguage,
+                                onClick = { onLanguageSelected(language) },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = language,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = Color(0xFF1E1E1E), // Even darker background for the dialog
+        shape = MaterialTheme.shapes.large // Softer rounded corners
+    )
 }
 
 @Composable
@@ -156,29 +251,6 @@ fun ToggleItem(title: String, value: Boolean, onToggle: (Boolean) -> Unit) {
             onCheckedChange = {
                 state = it
                 onToggle(it)
-            },
-            modifier = Modifier.scale(0.8f) // 🔥 Makes the switch smaller
-        )
-    }
-}
-
-@Composable
-fun ThemeToggleItem(title: String, value: String, onToggle: (String) -> Unit) {
-    var isDarkMode by remember { mutableStateOf(value == "dark") }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = title, color = Color.White, fontSize = 16.sp)
-        Switch(
-            checked = isDarkMode,
-            onCheckedChange = {
-                isDarkMode = it
-                onToggle(if (it) "dark" else "light")
             },
             modifier = Modifier.scale(0.8f) // 🔥 Makes the switch smaller
         )

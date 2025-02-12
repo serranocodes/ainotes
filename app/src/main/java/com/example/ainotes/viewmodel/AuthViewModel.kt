@@ -78,7 +78,6 @@ class AuthViewModel(
                     "email" to email,
                     "name" to name,
                     "createdAt" to System.currentTimeMillis(),
-                    "translationLanguage" to "English" // Default value
                 )
 
                 firestore.collection("users").document(uid).set(userData)

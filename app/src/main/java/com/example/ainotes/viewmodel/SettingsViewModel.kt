@@ -13,38 +13,77 @@ class SettingsViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val _userData = MutableStateFlow(UserData())
-    val userData: StateFlow<UserData> = _userData
+    private val _userData = MutableStateFlow<UserData?>(null)
+    val userData: StateFlow<UserData?> = _userData
 
     private val _appVersion = MutableStateFlow("Loading...")
     val appVersion: StateFlow<String> = _appVersion
 
+    private val _availableLanguages = MutableStateFlow<List<String>>(emptyList())
+    val availableLanguages: StateFlow<List<String>> = _availableLanguages
+
     init {
         loadUserData()
         loadAppVersion()
+        loadAvailableLanguages()
     }
 
     private fun loadUserData() {
         val userId = auth.currentUser?.uid ?: return
-        firestore.collection("users").document(userId).get()
+        val userRef = firestore.collection("users").document(userId)
+
+        userRef.get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    val preferences = document.get("preferences") as? Map<String, Any> ?: emptyMap()
-                    _userData.value = UserData(
-                        name = document.getString("name") ?: "Unknown Name",
-                        email = document.getString("email") ?: "Unknown Email",
-                        transcriptionLanguage = preferences["transcriptionLanguage"] as? String ?: "English",
-                        autoDeleteNotes = preferences["autoDeleteNotes"] as? Boolean ?: false,
-                        categoryDetection = preferences["categoryDetection"] as? Boolean ?: true,
-                        smartSummaries = preferences["smartSummaries"] as? Boolean ?: true,
-                        transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true,
-                        theme = preferences["theme"] as? String ?: "light"
-                    )
+                    val preferences = document.get("preferences") as? Map<String, Any>
+
+                    if (preferences != null) {
+                        // 🔥 Load user preferences from Firestore
+                        _userData.value = UserData(
+                            name = document.getString("name") ?: "Unknown Name",
+                            email = document.getString("email") ?: "Unknown Email",
+                            transcriptionLanguage = preferences["transcriptionLanguage"] as? String ?: "English",
+                            autoDeleteNotes = preferences["autoDeleteNotes"] as? Boolean ?: true,
+                            categoryDetection = preferences["categoryDetection"] as? Boolean ?: true,
+                            smartSummaries = preferences["smartSummaries"] as? Boolean ?: true,
+                            transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true
+                        )
+                    } else {
+                        // 🔥 Store default preferences if none exist
+                        val defaultPreferences = mapOf(
+                            "transcriptionLanguage" to "English",
+                            "autoDeleteNotes" to true,
+                            "categoryDetection" to true,
+                            "smartSummaries" to true,
+                            "transcriptionEnabled" to true
+                        )
+
+                        userRef.update("preferences", defaultPreferences)
+                            .addOnSuccessListener {
+                                Log.d("Firestore", "Default preferences stored in Firestore")
+                            }
+                            .addOnFailureListener {
+                                Log.e("Firestore", "Error storing default preferences", it)
+                            }
+
+                        // 🔥 Immediately update UI with defaults
+                        _userData.value = UserData(
+                            name = document.getString("name") ?: "Unknown Name",
+                            email = document.getString("email") ?: "Unknown Email",
+                            transcriptionLanguage = "English",
+                            autoDeleteNotes = true,
+                            categoryDetection = true,
+                            smartSummaries = true,
+                            transcriptionEnabled = true
+                        )
+                    }
                 }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Firestore", "Error fetching user data", exception)
             }
     }
 
-    // ✅ FIX: Added missing function to fetch app version from Firestore
     private fun loadAppVersion() {
         firestore.collection("appData").document("VersionInfo").get()
             .addOnSuccessListener { document ->
@@ -65,8 +104,44 @@ class SettingsViewModel : ViewModel() {
         val userId = auth.currentUser?.uid ?: return
         firestore.collection("users").document(userId)
             .update("preferences.$key", value)
-            .addOnSuccessListener { Log.d("Firestore", "Preference $key updated") }
+            .addOnSuccessListener {
+                Log.d("Firestore", "Preference $key updated")
+                // 🔥 Update local state
+                _userData.value = when (key) {
+                    "autoDeleteNotes" -> _userData.value?.copy(autoDeleteNotes = value as Boolean)
+                    "categoryDetection" -> _userData.value?.copy(categoryDetection = value as Boolean)
+                    "smartSummaries" -> _userData.value?.copy(smartSummaries = value as Boolean)
+                    "transcriptionEnabled" -> _userData.value?.copy(transcriptionEnabled = value as Boolean)
+                    else -> _userData.value
+                }
+            }
             .addOnFailureListener { Log.e("Firestore", "Error updating preference", it) }
+    }
+
+    private fun loadAvailableLanguages() {
+        firestore.collection("appData").document("settings").get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val languages = document.get("availableLanguages") as? List<String> ?: emptyList()
+                    _availableLanguages.value = languages
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Firestore", "Error fetching available languages", exception)
+            }
+    }
+
+    fun updateTranscriptionLanguage(selectedLanguage: String) {
+        val userId = auth.currentUser?.uid ?: return
+        firestore.collection("users").document(userId)
+            .update("preferences.transcriptionLanguage", selectedLanguage)
+            .addOnSuccessListener {
+                Log.d("Firestore", "Transcription language updated to $selectedLanguage")
+                _userData.value = _userData.value?.copy(transcriptionLanguage = selectedLanguage)
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Firestore", "Error updating transcription language", exception)
+            }
     }
 }
 
@@ -74,9 +149,8 @@ data class UserData(
     val name: String = "Loading...",
     val email: String = "Loading...",
     val transcriptionLanguage: String = "English",
-    val autoDeleteNotes: Boolean = false,
+    val autoDeleteNotes: Boolean = true,
     val categoryDetection: Boolean = true,
     val smartSummaries: Boolean = true,
     val transcriptionEnabled: Boolean = true,
-    val theme: String = "light"
 )
