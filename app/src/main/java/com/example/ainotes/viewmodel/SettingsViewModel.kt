@@ -23,7 +23,18 @@ class SettingsViewModel : ViewModel() {
     val availableLanguages: StateFlow<List<String>> = _availableLanguages
 
     init {
-        loadUserData()
+        // Listen for authentication state changes.
+        auth.addAuthStateListener { firebaseAuth ->
+            if (firebaseAuth.currentUser != null) {
+                loadUserData() // Reload data when a user is available.
+            } else {
+                _userData.value = null // Clear data when there's no user.
+            }
+        }
+        // Optionally, if a user is already signed in, load data immediately.
+        if (auth.currentUser != null) {
+            loadUserData()
+        }
         loadAppVersion()
         loadAvailableLanguages()
     }
@@ -36,9 +47,7 @@ class SettingsViewModel : ViewModel() {
             .addOnSuccessListener { document ->
                 if (document.exists()) {
                     val preferences = document.get("preferences") as? Map<String, Any>
-
                     if (preferences != null) {
-                        // 🔥 Load user preferences from Firestore
                         _userData.value = UserData(
                             name = document.getString("name") ?: "Unknown Name",
                             email = document.getString("email") ?: "Unknown Email",
@@ -49,7 +58,7 @@ class SettingsViewModel : ViewModel() {
                             transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true
                         )
                     } else {
-                        // 🔥 Store default preferences if none exist
+                        // Document exists but no preferences field – create defaults
                         val defaultPreferences = mapOf(
                             "transcriptionLanguage" to "English",
                             "autoDeleteNotes" to true,
@@ -57,7 +66,6 @@ class SettingsViewModel : ViewModel() {
                             "smartSummaries" to true,
                             "transcriptionEnabled" to true
                         )
-
                         userRef.update("preferences", defaultPreferences)
                             .addOnSuccessListener {
                                 Log.d("Firestore", "Default preferences stored in Firestore")
@@ -65,8 +73,6 @@ class SettingsViewModel : ViewModel() {
                             .addOnFailureListener {
                                 Log.e("Firestore", "Error storing default preferences", it)
                             }
-
-                        // 🔥 Immediately update UI with defaults
                         _userData.value = UserData(
                             name = document.getString("name") ?: "Unknown Name",
                             email = document.getString("email") ?: "Unknown Email",
@@ -77,6 +83,36 @@ class SettingsViewModel : ViewModel() {
                             transcriptionEnabled = true
                         )
                     }
+                } else {
+                    // Document does not exist – create it with default preferences
+                    val defaultPreferences = mapOf(
+                        "transcriptionLanguage" to "English",
+                        "autoDeleteNotes" to true,
+                        "categoryDetection" to true,
+                        "smartSummaries" to true,
+                        "transcriptionEnabled" to true
+                    )
+                    val newUserData = UserData(
+                        name = "Unknown Name",
+                        email = "Unknown Email",
+                        transcriptionLanguage = "English",
+                        autoDeleteNotes = true,
+                        categoryDetection = true,
+                        smartSummaries = true,
+                        transcriptionEnabled = true
+                    )
+                    userRef.set(
+                        mapOf(
+                            "name" to newUserData.name,
+                            "email" to newUserData.email,
+                            "preferences" to defaultPreferences
+                        )
+                    ).addOnSuccessListener {
+                        Log.d("Firestore", "New user document created")
+                    }.addOnFailureListener {
+                        Log.e("Firestore", "Error creating user document", it)
+                    }
+                    _userData.value = newUserData
                 }
             }
             .addOnFailureListener { exception ->
@@ -116,6 +152,11 @@ class SettingsViewModel : ViewModel() {
                 }
             }
             .addOnFailureListener { Log.e("Firestore", "Error updating preference", it) }
+    }
+
+    fun clearUserData() {
+        _userData.value = null
+        _availableLanguages.value = emptyList()
     }
 
     private fun loadAvailableLanguages() {

@@ -116,7 +116,10 @@ fun SettingsScreen(
                         SettingsItem(
                             title = "Log Out",
                             textColor = Color.Red, // 🔥 Logout is red
-                            onClick = onLogoutClicked
+                            onClick = {
+                                viewModel.clearUserData()  // Clear cached user data
+                                onLogoutClicked()          // Then proceed with logout
+                            }
                         )
                     }
                 }
@@ -153,13 +156,17 @@ fun LanguageSelectionDialog(
             }
         },
         title = {
-            Text("Choose Transcription Language", color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                "Choose Transcription Language",
+                color = Color.White, // 🔥 Ensures visibility on dark background
+                style = MaterialTheme.typography.titleLarge
+            )
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFFFFFFF), shape = MaterialTheme.shapes.medium)
+                    .background(Color(0xFF2C2C2C), shape = MaterialTheme.shapes.medium) // 🔥 Darker background
                     .padding(16.dp)
             ) {
                 LazyColumn {
@@ -176,12 +183,12 @@ fun LanguageSelectionDialog(
                                 onClick = { onLanguageSelected(language) },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurface
+                                    unselectedColor = Color.Gray // 🔥 Softer contrast
                                 )
                             )
                             Text(
                                 text = language,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = Color.White, // 🔥 Ensures visibility
                                 modifier = Modifier.padding(start = 12.dp),
                                 style = MaterialTheme.typography.bodyLarge
                             )
@@ -190,8 +197,8 @@ fun LanguageSelectionDialog(
                 }
             }
         },
-        containerColor = Color(0xFF1E1E1E), // Even darker background for the dialog
-        shape = MaterialTheme.shapes.large // Softer rounded corners
+        containerColor = Color(0xFF1A1A1A),
+        shape = MaterialTheme.shapes.large
     )
 }
 

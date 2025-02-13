@@ -1,28 +1,62 @@
 package com.example.ainotes.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.example.ainotes.viewmodel.RecordingViewModel
 
 @Composable
-fun MainScreen(navController: NavController) {
+fun MainScreen(
+    navController: NavController,
+    recordingViewModel: RecordingViewModel
+) {
+    val context = LocalContext.current
+    var hasAudioPermission by remember { mutableStateOf(false) }
+
+    // 1) Contract for requesting record-audio permission
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        hasAudioPermission = isGranted
+        if (isGranted) {
+            // As soon as user allows, go directly to Recording
+            navigateToRecordingIfNotBusy(navController, recordingViewModel)
+        } else {
+            Log.e("MainScreen", "Microphone permission denied!")
+        }
+    }
+
+    // 2) Check current permission once on start
+    LaunchedEffect(Unit) {
+        hasAudioPermission =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+    }
+
     Surface(
-        modifier = Modifier
-            .fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         color = Color.Transparent
     ) {
-        // Gradient Background
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -32,7 +66,7 @@ fun MainScreen(navController: NavController) {
                     )
                 )
         ) {
-            // Center Content
+            /** Content Card **/
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -40,7 +74,6 @@ fun MainScreen(navController: NavController) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // App Description Card in the Center
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -72,36 +105,50 @@ fun MainScreen(navController: NavController) {
                 }
             }
 
-            // Custom Recording Button at Bottom-Center
+            /** Record Button (Entire Circle Clickable) **/
             Box(
                 contentAlignment = Alignment.BottomCenter,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 40.dp) // Add padding from the bottom
+                    .padding(bottom = 40.dp)
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
+                // Use a single Surface for the red circle and place white circle inside it.
+                // Disable the default ripple effect (black shadow) by setting indication to null.
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Red,
                     modifier = Modifier
-                        .size(80.dp) // Outer Circle (20% smaller)
-                        .background(color = Color.Transparent)
+                        .size(80.dp)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = {
+                                Log.d("MainScreen", "Record button clicked")
+                                if (!hasAudioPermission) {
+                                    // Request permission; if user grants, we navigate inside the callback
+                                    requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                } else {
+                                    // Already have permission? Go record
+                                    navigateToRecordingIfNotBusy(navController, recordingViewModel)
+                                }
+                            }
+                        )
                 ) {
-                    // Outer Red Circle
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.Red,
-                        modifier = Modifier.size(80.dp)
-                    ) {}
-
-                    // Inner White Circle
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    ) {}
+                    // White circle in the center
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White,
+                            modifier = Modifier.size(48.dp)
+                        ) {}
+                    }
                 }
             }
 
-            // Settings Icon at Bottom-Right
+            /** Settings Button **/
             IconButton(
                 onClick = { navController.navigate("settings") },
                 modifier = Modifier
@@ -116,5 +163,20 @@ fun MainScreen(navController: NavController) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Navigates to "recording" if we are not currently recording.
+ */
+private fun navigateToRecordingIfNotBusy(
+    navController: NavController,
+    recordingViewModel: RecordingViewModel
+) {
+    if (!recordingViewModel.isRecording.value) {
+        navController.navigate("recording")
+        Log.d("MainScreen", "Navigating to RecordingScreen...")
+    } else {
+        Log.e("MainScreen", "Recording already in progress!")
     }
 }

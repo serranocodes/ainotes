@@ -8,12 +8,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ainotes.ui.screens.*
 import com.example.ainotes.viewmodel.AuthViewModel
+import com.example.ainotes.viewmodel.MainViewModel
+import com.example.ainotes.viewmodel.RecordingViewModel
 import com.example.ainotes.viewmodel.SettingsViewModel
 
 @Composable
 fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
     val navController: NavHostController = rememberNavController()
     val startDestination = if (startWithOnboarding) "onboarding" else "login"
+
+    // Provide ViewModels at the NavHost level to persist across screens
+    val mainViewModel: MainViewModel = viewModel()
+    val recordingViewModel: RecordingViewModel = viewModel()
+    val settingsViewModel: SettingsViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = startDestination) {
         // Onboarding Screen
@@ -38,7 +45,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 viewModel = authViewModel,
                 onNeedAccountClicked = { navController.navigate("email_sign_up") },
                 onLoginSuccess = {
-                    navController.navigate("main") { // Navigate to MainScreen on successful login
+                    navController.navigate("main") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
@@ -51,30 +58,39 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 viewModel = authViewModel,
                 onAlreadyUserClicked = { navController.navigate("login") },
                 onSignUpSuccess = {
-                    navController.navigate("main") { // Navigate to MainScreen on successful sign-up
+                    navController.navigate("main") {
                         popUpTo("email_sign_up") { inclusive = true }
                     }
                 }
             )
         }
 
-        // Main Screen
         composable("main") {
-            MainScreen(navController = navController)
+            MainScreen(
+                navController = navController,
+                recordingViewModel = recordingViewModel
+            )
         }
 
-        composable("settings") {
-            val settingsViewModel: SettingsViewModel = viewModel() // Provide the ViewModel
+        // Recording Screen
+        composable("recording") {
+            RecordingScreen(
+                navController = navController,
+                viewModel = recordingViewModel
+            )
+        }
 
+        // Settings Screen
+        composable("settings") {
             SettingsScreen(
                 onBackPressed = { navController.popBackStack() },
                 onLogoutClicked = {
-                    authViewModel.signOut() // Clear user session
+                    authViewModel.signOut()
                     navController.navigate("login") {
-                        popUpTo("main") { inclusive = true } // Clear backstack to ensure logout
+                        popUpTo("main") { inclusive = true }
                     }
                 },
-                viewModel = settingsViewModel // Pass ViewModel to SettingsScreen
+                viewModel = settingsViewModel // Inject SettingsViewModel
             )
         }
     }
