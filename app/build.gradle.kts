@@ -1,8 +1,12 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
+    // Removed: alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -32,7 +36,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3" // Latest Kotlin compiler for Compose
+        kotlinCompilerExtensionVersion = "1.4.8"
     }
 
     compileOptions {
@@ -46,8 +50,8 @@ android {
 }
 
 dependencies {
-    implementation("androidx.compose.material3:material3:1.1.1")
-    implementation("androidx.compose.material:material-icons-extended:1.7.7")
+    implementation("androidx.compose.material3:material3:1.3.1")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
     // Other dependencies
     implementation(libs.androidx.core.ktx)
@@ -59,18 +63,22 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.2")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 
     // ViewModel for Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation(libs.androidx.navigation.compose)
+
+    // Hilt runtime and compiler
+    implementation("com.google.dagger:hilt-android:2.55")
+    kapt("com.google.dagger:hilt-android-compiler:2.55")
 
     // Testing dependencies
     testImplementation(libs.junit)
@@ -84,6 +92,16 @@ dependencies {
 
 configurations.all {
     resolutionStrategy {
-        force("androidx.compose.material3:material3:1.1.1") // Enforce Material3 version
+        force("androidx.compose.material3:material3:1.1.1")
+    }
+}
+
+kapt {
+    correctErrorTypes = true
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    kotlinOptions {
+        jvmTarget = "1.8"
     }
 }

@@ -4,12 +4,16 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
 
-class SettingsViewModel : ViewModel() {
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) : ViewModel() {
 
     private val _userData = MutableStateFlow<UserData?>(null)
     val userData: StateFlow<UserData?> = _userData
@@ -21,15 +25,13 @@ class SettingsViewModel : ViewModel() {
     val availableLanguages: StateFlow<List<String>> = _availableLanguages
 
     init {
-        // Listen for authentication state changes.
         auth.addAuthStateListener { firebaseAuth ->
             if (firebaseAuth.currentUser != null) {
-                loadUserData() // Reload data when a user is available.
+                loadUserData()
             } else {
-                _userData.value = null // Clear data when there's no user.
+                _userData.value = null
             }
         }
-        // Optionally, if a user is already signed in, load data immediately.
         if (auth.currentUser != null) {
             loadUserData()
         }
@@ -40,7 +42,6 @@ class SettingsViewModel : ViewModel() {
     private fun loadUserData() {
         val userId = auth.currentUser?.uid ?: return
         val userRef = firestore.collection("users").document(userId)
-
         userRef.get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
@@ -56,7 +57,6 @@ class SettingsViewModel : ViewModel() {
                             transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true
                         )
                     } else {
-                        // Document exists but no preferences field – create defaults
                         val defaultPreferences = mapOf(
                             "transcriptionLanguage" to "English",
                             "autoDeleteNotes" to true,
@@ -82,7 +82,6 @@ class SettingsViewModel : ViewModel() {
                         )
                     }
                 } else {
-                    // Document does not exist – create it with default preferences
                     val defaultPreferences = mapOf(
                         "transcriptionLanguage" to "English",
                         "autoDeleteNotes" to true,
@@ -140,7 +139,6 @@ class SettingsViewModel : ViewModel() {
             .update("preferences.$key", value)
             .addOnSuccessListener {
                 Log.d("Firestore", "Preference $key updated")
-                // 🔥 Update local state
                 _userData.value = when (key) {
                     "autoDeleteNotes" -> _userData.value?.copy(autoDeleteNotes = value as Boolean)
                     "categoryDetection" -> _userData.value?.copy(categoryDetection = value as Boolean)
@@ -154,14 +152,12 @@ class SettingsViewModel : ViewModel() {
 
     fun clearUserData() {
         _userData.value = null
-        _availableLanguages.value = emptyList()
     }
 
     private fun loadAvailableLanguages() {
         firestore.collection("appData").document("settings").get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    Log.d("Firestore", "Document data: ${document.data}")
                     val languages = (document.get("availableLanguages") as? List<*>)?.map { it.toString() } ?: emptyList()
                     _availableLanguages.value = languages
                 }

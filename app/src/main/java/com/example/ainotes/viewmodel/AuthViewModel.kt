@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.ainotes.data.repository.AuthRepository
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class AuthUiState(
     val email: String = "",
@@ -17,23 +19,19 @@ data class AuthUiState(
     val errorMessage: String? = null
 )
 
-class AuthViewModel(
-    private val authRepo: AuthRepository = AuthRepository(),
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance() // Firestore instance
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepo: AuthRepository,       // Injected AuthRepository
+    private val firestore: FirebaseFirestore      // Provided via FirebaseModule
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
 
     fun resetInputFields() {
-        _uiState.value = _uiState.value.copy(
-            email = "",
-            password = "",
-            errorMessage = null
-        )
+        _uiState.value = _uiState.value.copy(email = "", password = "", errorMessage = null)
     }
 
-    // Update email and password fields as the user types
     fun onEmailChange(newEmail: String) {
         _uiState.value = _uiState.value.copy(email = newEmail)
     }
@@ -42,7 +40,6 @@ class AuthViewModel(
         _uiState.value = _uiState.value.copy(password = newPassword)
     }
 
-    // Sign in with email/password
     fun signIn() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
@@ -64,7 +61,6 @@ class AuthViewModel(
         }
     }
 
-    // Sign up with email/password and save user data in Firestore
     fun signUp(name: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
@@ -72,14 +68,12 @@ class AuthViewModel(
             val password = _uiState.value.password
             val result = authRepo.signUpUser(email, password)
             result.onSuccess { user ->
-                // Save user data to Firestore
                 val uid = user.uid
                 val userData = mapOf(
                     "email" to email,
                     "name" to name,
-                    "createdAt" to System.currentTimeMillis(),
+                    "createdAt" to System.currentTimeMillis()
                 )
-
                 firestore.collection("users").document(uid).set(userData)
                     .addOnSuccessListener {
                         _uiState.value = _uiState.value.copy(
@@ -103,13 +97,11 @@ class AuthViewModel(
         }
     }
 
-    // Sign out
     fun signOut() {
         authRepo.signOut()
         _uiState.value = AuthUiState()
     }
 
-    // Update error message in UI state
     fun updateError(error: String) {
         _uiState.value = _uiState.value.copy(errorMessage = error)
     }

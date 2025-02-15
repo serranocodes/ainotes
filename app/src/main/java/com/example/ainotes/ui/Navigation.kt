@@ -1,7 +1,7 @@
 package com.example.ainotes.ui
 
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,17 +13,17 @@ import com.example.ainotes.viewmodel.RecordingViewModel
 import com.example.ainotes.viewmodel.SettingsViewModel
 
 @Composable
-fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
+fun AppNavigation(startWithOnboarding: Boolean) {
     val navController: NavHostController = rememberNavController()
     val startDestination = if (startWithOnboarding) "onboarding" else "login"
 
-    // Provide ViewModels at the NavHost level to persist across screens
-    val mainViewModel: MainViewModel = viewModel()
-    val recordingViewModel: RecordingViewModel = viewModel()
-    val settingsViewModel: SettingsViewModel = viewModel()
+    // Get ViewModels via Hilt
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val recordingViewModel: RecordingViewModel = hiltViewModel()
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
 
     NavHost(navController = navController, startDestination = startDestination) {
-        // Onboarding Screen
         composable("onboarding") {
             OnboardingScreen(
                 onComplete = {
@@ -33,13 +33,9 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 }
             )
         }
-
-        // Sign-Up Options Screen
         composable("sign_up_options") {
             SignUpOptionsScreen(navController)
         }
-
-        // Login Screen
         composable("login") {
             LoginScreen(
                 viewModel = authViewModel,
@@ -51,8 +47,6 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 }
             )
         }
-
-        // Email Sign-Up Screen
         composable("email_sign_up") {
             EmailSignUpScreen(
                 viewModel = authViewModel,
@@ -64,23 +58,18 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 }
             )
         }
-
         composable("main") {
             MainScreen(
                 navController = navController,
                 recordingViewModel = recordingViewModel
             )
         }
-
-        // Recording Screen
         composable("recording") {
             RecordingScreen(
                 navController = navController,
                 viewModel = recordingViewModel
             )
         }
-
-        // Settings Screen
         composable("settings") {
             SettingsScreen(
                 onBackPressed = { navController.popBackStack() },
@@ -90,7 +79,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                         popUpTo("main") { inclusive = true }
                     }
                 },
-                viewModel = settingsViewModel // Inject SettingsViewModel
+                viewModel = settingsViewModel
             )
         }
     }
