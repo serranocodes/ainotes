@@ -1,12 +1,14 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
+    // Use your version catalog plugin aliases:
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
-    // Removed: alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     id("org.jetbrains.kotlin.kapt")
+    // If needed, also use:
+    // alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -35,6 +37,7 @@ android {
         compose = true
     }
 
+    // Align the Compose compiler with your Kotlin version (1.9.10)
     composeOptions {
         kotlinCompilerExtensionVersion = "1.4.8"
     }
@@ -50,37 +53,54 @@ android {
 }
 
 dependencies {
+    // ----------------------------------------------------------
+    // Compose
+    // ----------------------------------------------------------
+    implementation(platform(libs.androidx.compose.bom))
     implementation("androidx.compose.material3:material3:1.3.1")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-
-    // Other dependencies
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
 
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
+    // AndroidX & Lifecycle
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
     implementation("androidx.datastore:datastore-preferences:1.1.2")
 
-    // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
+    // ----------------------------------------------------------
+    // Firebase - Downgrade BOM for Kotlin 1.9 compatibility
+    // ----------------------------------------------------------
+    // Comment out the older "libs.firebaseBom" usage:
+    // implementation(platform(libs.firebaseBom))
+
+    // Use an explicit stable BOM that doesn't pull in Kotlin 2.x
+    implementation(platform("com.google.firebase:firebase-bom:32.4.0"))
+
+    // The BOM will manage versions for these artifacts:
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+
+    // ----------------------------------------------------------
+    // Coroutines - Downgrade from 1.10.x to 1.7.x for Kotlin 1.9
+    // ----------------------------------------------------------
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // ViewModel for Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation(libs.androidx.navigation.compose)
 
-    // Hilt runtime and compiler
+    // ----------------------------------------------------------
+    // Hilt (runtime + compiler)
+    // ----------------------------------------------------------
     implementation("com.google.dagger:hilt-android:2.55")
     kapt("com.google.dagger:hilt-android-compiler:2.55")
 
-    // Testing dependencies
+    // ----------------------------------------------------------
+    // Testing
+    // ----------------------------------------------------------
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -88,12 +108,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-}
-
-configurations.all {
-    resolutionStrategy {
-        force("androidx.compose.material3:material3:1.1.1")
-    }
 }
 
 kapt {

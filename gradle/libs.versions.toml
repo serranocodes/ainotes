@@ -13,9 +13,16 @@ firebaseFirestore = "25.1.1"
 material3Lint = "1.4.0-alpha07"
 materialIconsExtended = "<latest-version>"
 navigationCompose = "2.8.7"
-hilt = "2.44"
+
+# Use whichever Firebase BOM version your code references:
+firebaseBom = "33.9.0"
+
+hilt = "2.55"
 
 [libraries]
+# Instead of "firebase-bom" => "firebaseBom"
+firebaseBom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -36,14 +43,8 @@ androidx-material3-lint = { group = "androidx.compose.material3", name = "materi
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 [plugins]
-
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-
-
-
-
-
