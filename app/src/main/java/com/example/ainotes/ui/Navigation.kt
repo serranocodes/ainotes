@@ -80,6 +80,11 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
+        composable("transcription") {
+            TranscriptionScreen(navController, recordingViewModel)
+        }
+
+
         // Settings Screen
         composable("settings") {
             SettingsScreen(

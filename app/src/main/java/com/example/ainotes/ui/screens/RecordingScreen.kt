@@ -1,7 +1,5 @@
 package com.example.ainotes.ui.screens
 
-import android.os.Environment
-import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -16,9 +14,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.ainotes.viewmodel.RecordingViewModel
-import java.io.File
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -28,11 +23,14 @@ fun RecordingScreen(
 ) {
     val context = LocalContext.current
 
-    // Observe state from the ViewModel
+    // Observe amplitude and isRecording
     val amplitude by viewModel.amplitude.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
 
-    // Automatically start recording when we land on this screen
+    // Create a coroutine scope for button clicks
+    val scope = rememberCoroutineScope()
+
+    // Automatically start "recording" (speech recognition) upon entering
     LaunchedEffect(Unit) {
         viewModel.startRecording(context)
     }
@@ -58,25 +56,10 @@ fun RecordingScreen(
             // Stop Button
             Button(
                 onClick = {
-                    // Launch a coroutine so we can await stopRecording() completion
-                    CoroutineScope(Dispatchers.Main).launch {
+                    scope.launch {
+                        // Stop speech, then navigate to transcription
                         viewModel.stopRecording()
-
-                        // Use the file created in the view model
-                        val internalFile = viewModel.getOutputFile()
-                        if (internalFile != null && internalFile.exists()) {
-                            val externalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), internalFile.name)
-                            try {
-                                internalFile.copyTo(externalFile, overwrite = true)
-                                Log.d("Test", "Copied to external: ${externalFile.absolutePath}")
-                            } catch (e: Exception) {
-                                Log.e("Test", "Copy failed", e)
-                            }
-                        } else {
-                            Log.e("Test", "Internal file is null or does not exist")
-                        }
-
-                        navController.popBackStack()
+                        navController.navigate("transcription")
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
@@ -89,6 +72,7 @@ fun RecordingScreen(
             // Cancel Button
             TextButton(
                 onClick = {
+                    // Cancel speech recognition, then pop back
                     viewModel.cancelRecording()
                     navController.popBackStack()
                 }
@@ -130,11 +114,11 @@ fun AudioWaveform(amplitude: Int, isRecording: Boolean) {
             drawLine(
                 color = if (isRecording) Color.Yellow else Color.Gray,
                 start = androidx.compose.ui.geometry.Offset(
-                    x = i * barWidth,
+                    x = i.toFloat() * barWidth,
                     y = size.height / 2 - animatedAmplitude
                 ),
                 end = androidx.compose.ui.geometry.Offset(
-                    x = i * barWidth,
+                    x = i.toFloat() * barWidth,
                     y = size.height / 2 + animatedAmplitude
                 ),
                 strokeWidth = 6f
