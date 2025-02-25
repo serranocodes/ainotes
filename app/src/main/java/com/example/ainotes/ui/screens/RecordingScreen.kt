@@ -1,5 +1,7 @@
+// File: RecordingScreen.kt
 package com.example.ainotes.ui.screens
 
+import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -22,15 +24,12 @@ fun RecordingScreen(
     viewModel: RecordingViewModel
 ) {
     val context = LocalContext.current
-
-    // Observe amplitude and isRecording
     val amplitude by viewModel.amplitude.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
 
-    // Create a coroutine scope for button clicks
+    // 1) Create the coroutine scope *here*, inside the composable body
     val scope = rememberCoroutineScope()
 
-    // Automatically start "recording" (speech recognition) upon entering
     LaunchedEffect(Unit) {
         viewModel.startRecording(context)
     }
@@ -48,16 +47,14 @@ fun RecordingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 🎵 Animated Waveform
             AudioWaveform(amplitude = amplitude, isRecording = isRecording)
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Stop Button
             Button(
                 onClick = {
+                    // 2) Use the scope *here* in the onClick
                     scope.launch {
-                        // Stop speech, then navigate to transcription
                         viewModel.stopRecording()
                         navController.navigate("transcription")
                     }
@@ -69,10 +66,8 @@ fun RecordingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Cancel Button
             TextButton(
                 onClick = {
-                    // Cancel speech recognition, then pop back
                     viewModel.cancelRecording()
                     navController.popBackStack()
                 }
@@ -83,12 +78,14 @@ fun RecordingScreen(
     }
 }
 
+/**
+ * Same waveform code as you have, but amplitude now comes from speech input's onRmsChanged.
+ */
 @Composable
 fun AudioWaveform(amplitude: Int, isRecording: Boolean) {
     val transition = rememberInfiniteTransition()
 
-    // Lower scaleFactor => bigger bars for the same amplitude
-    val scaleFactor = 25f
+    val scaleFactor = 25f   // tweak as needed for your style
     val minHeight = 5f
     val maxHeight = 150f
 
@@ -114,11 +111,11 @@ fun AudioWaveform(amplitude: Int, isRecording: Boolean) {
             drawLine(
                 color = if (isRecording) Color.Yellow else Color.Gray,
                 start = androidx.compose.ui.geometry.Offset(
-                    x = i.toFloat() * barWidth,
+                    x = i * barWidth,
                     y = size.height / 2 - animatedAmplitude
                 ),
                 end = androidx.compose.ui.geometry.Offset(
-                    x = i.toFloat() * barWidth,
+                    x = i * barWidth,
                     y = size.height / 2 + animatedAmplitude
                 ),
                 strokeWidth = 6f

@@ -91,7 +91,7 @@ class RecordingViewModel : ViewModel() {
      * Stops the speech recognition.
      * Calls an internal suspend function inside a coroutine.
      */
-    suspend fun stopRecording() {
+    fun stopRecording() {
         viewModelScope.launch {
             stopRecordingInternal()
         }
@@ -124,10 +124,4 @@ class RecordingViewModel : ViewModel() {
         speechRecognizer?.destroy()
         speechRecognizer = null
     }
-
-    /**
-     * Stub for compatibility with your UI.
-     * Since we're not recording audio to a file, this returns null.
-     */
-    fun getOutputFile(): Nothing? = null
 }
