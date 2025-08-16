@@ -58,7 +58,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 viewModel = authViewModel,
                 onAlreadyUserClicked = { navController.navigate("login") },
                 onSignUpSuccess = {
-                    navController.navigate("main") {
+                    navController.navigate("login") {
                         popUpTo("email_sign_up") { inclusive = true }
                     }
                 }

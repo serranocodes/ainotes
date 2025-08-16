@@ -160,6 +160,16 @@ fun EmailSignUpScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Info Message
+            uiState.infoMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = Color.Green,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             // Error Message
             uiState.errorMessage?.let { error ->
                 Text(
@@ -192,13 +202,6 @@ fun EmailSignUpScreen(
                     onClick = { onAlreadyUserClicked() }
                 )
             }
-        }
-    }
-
-    // Navigate to Main Screen when sign-up succeeds
-    LaunchedEffect(uiState.user) {
-        if (uiState.user != null) {
-            onSignUpSuccess()
         }
     }
 }

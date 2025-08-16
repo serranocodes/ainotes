@@ -8,13 +8,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class AuthUiState(
     val email: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
     val user: FirebaseUser? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val infoMessage: String? = null
 )
 
 class AuthViewModel(
@@ -29,7 +31,8 @@ class AuthViewModel(
         _uiState.value = _uiState.value.copy(
             email = "",
             password = "",
-            errorMessage = null
+            errorMessage = null,
+            infoMessage = null
         )
     }
 
@@ -44,21 +47,33 @@ class AuthViewModel(
 
     // Sign in with email/password
     fun signIn() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, infoMessage = null)
         viewModelScope.launch {
             val email = _uiState.value.email
             val password = _uiState.value.password
             val result = authRepo.signInUser(email, password)
             result.onSuccess { user ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    user = user,
-                    errorMessage = null
-                )
+                if (user.isEmailVerified) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        user = user,
+                        errorMessage = null,
+                        infoMessage = null
+                    )
+                } else {
+                    authRepo.signOut()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        user = null,
+                        errorMessage = "Email not verified. Please check your inbox.",
+                        infoMessage = null
+                    )
+                }
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage
+                    errorMessage = e.localizedMessage,
+                    infoMessage = null
                 )
             }
         }
@@ -66,7 +81,7 @@ class AuthViewModel(
 
     // Sign up with email/password and save user data in Firestore
     fun signUp(name: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, infoMessage = null)
         viewModelScope.launch {
             val email = _uiState.value.email
             val password = _uiState.value.password
@@ -82,12 +97,19 @@ class AuthViewModel(
 
                 firestore.collection("users").document(uid).set(userData)
                     .addOnSuccessListener {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            user = user,
-                            errorMessage = null
-                        )
-                        onSuccess()
+                        viewModelScope.launch {
+                            try {
+                                user.sendEmailVerification().await()
+                                authRepo.signOut()
+                                _uiState.value = AuthUiState(
+                                    infoMessage = "Verification email sent. Please verify before logging in."
+                                )
+                                onSuccess()
+                            } catch (e: Exception) {
+                                _uiState.value = _uiState.value.copy(isLoading = false)
+                                onError("Failed to send verification email: ${e.message}")
+                            }
+                        }
                     }
                     .addOnFailureListener { e ->
                         _uiState.value = _uiState.value.copy(isLoading = false)
@@ -96,7 +118,8 @@ class AuthViewModel(
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage
+                    errorMessage = e.localizedMessage,
+                    infoMessage = null
                 )
                 onError(e.localizedMessage ?: "An unknown error occurred.")
             }

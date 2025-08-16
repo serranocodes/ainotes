@@ -127,6 +127,16 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Info Message
+            uiState.infoMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = Color.Green,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             // Error Message
             uiState.errorMessage?.let { error ->
                 Text(
