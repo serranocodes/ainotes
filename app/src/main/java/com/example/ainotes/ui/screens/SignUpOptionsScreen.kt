@@ -9,8 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.example.ainotes.viewmodel.AuthViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -28,6 +27,17 @@ import androidx.navigation.NavController
 @Composable
 fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewModel) {
     val context = LocalContext.current
+    val uiState by authViewModel.uiState.collectAsState()
+
+    // Navigate once the user is available
+    LaunchedEffect(uiState.user) {
+        if (uiState.user != null) {
+            navController.navigate("main") {
+                popUpTo("sign_up_options") { inclusive = true }
+            }
+        }
+    }
+
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(com.example.ainotes.R.string.default_web_client_id))
@@ -42,11 +52,9 @@ fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewMod
             val account = task.getResult(ApiException::class.java)
             val idToken = account?.idToken
             if (idToken != null) {
-                authViewModel.googleSignIn(idToken, onSuccess = {
-                    navController.navigate("main") {
-                        popUpTo("sign_up_options") { inclusive = true }
-                    }
-                }, onError = { authViewModel.updateError(it) })
+                authViewModel.googleSignIn(idToken)
+            } else {
+                authViewModel.updateError("Google sign-in failed")
             }
         } catch (e: ApiException) {
             authViewModel.updateError(e.localizedMessage ?: "Google sign-in failed")
@@ -116,6 +124,16 @@ fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewMod
                     .height(50.dp)
             ) {
                 Text("Sign Up with email", fontWeight = FontWeight.Bold)
+            }
+
+            // Error message, if any
+            uiState.errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
             }
         }
     }
