@@ -2,6 +2,7 @@ package com.example.ainotes.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
 
 class AuthRepository(
@@ -32,4 +33,15 @@ class AuthRepository(
     }
 
     fun getCurrentUser(): FirebaseUser? = auth.currentUser
+
+    // Sign in with Google ID token
+    suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser> {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        return try {
+            val result = auth.signInWithCredential(credential).await()
+            Result.success(result.user!!)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
