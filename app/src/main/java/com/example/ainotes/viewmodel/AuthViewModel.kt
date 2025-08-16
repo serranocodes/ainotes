@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.ainotes.data.repository.AuthRepository
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -112,5 +113,36 @@ class AuthViewModel(
     // Update error message in UI state
     fun updateError(error: String) {
         _uiState.value = _uiState.value.copy(errorMessage = error)
+    }
+
+    // Sign in with Google ID token and save to Firestore if new user
+    fun googleSignIn(idToken: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        viewModelScope.launch {
+            val result = authRepo.signInWithGoogle(idToken)
+            result.onSuccess { user ->
+                try {
+                    val uid = user.uid
+                    val userDoc = firestore.collection("users").document(uid)
+                    val snapshot = userDoc.get().await()
+                    if (!snapshot.exists()) {
+                        val userData = mapOf(
+                            "email" to user.email,
+                            "name" to user.displayName,
+                            "createdAt" to System.currentTimeMillis(),
+                        )
+                        userDoc.set(userData).await()
+                    }
+                    _uiState.value = _uiState.value.copy(isLoading = false, user = user)
+                    onSuccess()
+                } catch (e: Exception) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
+                    onError(e.localizedMessage ?: "An unknown error occurred.")
+                }
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
+                onError(e.localizedMessage ?: "An unknown error occurred.")
+            }
+        }
     }
 }
