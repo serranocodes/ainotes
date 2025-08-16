@@ -9,7 +9,6 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 data class AuthUiState(
     val email: String = "",
@@ -139,11 +138,15 @@ class AuthViewModel(
     }
 
     // Sign in with Google ID token and save to Firestore if new user
-    fun googleSignIn(idToken: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun googleSignIn(idToken: String) {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
             val result = authRepo.signInWithGoogle(idToken)
             result.onSuccess { user ->
+                // Immediately update state so UI can react (e.g., navigate)
+                _uiState.value = _uiState.value.copy(isLoading = false, user = user)
+
+                // Save user document in Firestore if it doesn't exist
                 try {
                     val uid = user.uid
                     val userDoc = firestore.collection("users").document(uid)
@@ -156,15 +159,12 @@ class AuthViewModel(
                         )
                         userDoc.set(userData).await()
                     }
-                    _uiState.value = _uiState.value.copy(isLoading = false, user = user)
-                    onSuccess()
                 } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
-                    onError(e.localizedMessage ?: "An unknown error occurred.")
+                    // Surface Firestore errors to the UI but keep the user signed in
+                    _uiState.value = _uiState.value.copy(errorMessage = e.localizedMessage)
                 }
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.localizedMessage)
-                onError(e.localizedMessage ?: "An unknown error occurred.")
             }
         }
     }
