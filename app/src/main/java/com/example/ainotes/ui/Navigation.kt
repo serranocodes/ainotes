@@ -36,7 +36,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
 
         // Sign-Up Options Screen
         composable("sign_up_options") {
-            SignUpOptionsScreen(navController)
+            SignUpOptionsScreen(navController, authViewModel)
         }
 
         // Login Screen

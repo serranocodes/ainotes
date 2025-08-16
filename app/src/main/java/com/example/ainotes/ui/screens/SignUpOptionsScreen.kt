@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ainotes.viewmodel.AuthViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -27,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
 @Composable
-fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewModel = viewModel()) {
+fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewModel) {
     val context = LocalContext.current
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -44,7 +43,9 @@ fun SignUpOptionsScreen(navController: NavController, authViewModel: AuthViewMod
             val idToken = account?.idToken
             if (idToken != null) {
                 authViewModel.googleSignIn(idToken, onSuccess = {
-                    navController.navigate("home")
+                    navController.navigate("main") {
+                        popUpTo("sign_up_options") { inclusive = true }
+                    }
                 }, onError = { authViewModel.updateError(it) })
             }
         } catch (e: ApiException) {
