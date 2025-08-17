@@ -14,9 +14,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * ViewModel that manages continuous speech recognition. The recognizer is restarted
+ * whenever speech ends or an error occurs so that the user can speak for as long as
+ * needed until they explicitly stop the recording.
+ */
 class RecordingViewModel : ViewModel() {
 
-    // Used to animate your waveform (from onRmsChanged)
+    // Used to animate the waveform
     private val _amplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _amplitude
 
@@ -24,23 +29,29 @@ class RecordingViewModel : ViewModel() {
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording
 
-    // Holds the final recognized text
+    // Accumulates the finalized portions of the transcript
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
 
-    // SpeechRecognizer instance
+    // Holds finalized text separately so partial results can be merged without
+    // duplicating previously recognized words
+    private val finalText = StringBuilder()
+
     private var speechRecognizer: SpeechRecognizer? = null
+    private var recognizerIntent: Intent? = null
 
     /**
-     * Starts "recording" (i.e. speech recognition) by creating and starting a SpeechRecognizer.
-     * If a recognizer is already active, it stops it first.
+     * Begin listening for speech. The SpeechRecognizer is (re)created each time to avoid
+     * lingering state from a previous session.
      */
     fun startRecording(context: Context) {
         viewModelScope.launch {
-            // Stop any previous recognition if active
             stopRecordingInternal()
 
-            // Create a new SpeechRecognizer instance and set its listener
+            // Reset any previously recognized text for a fresh session
+            finalText.clear()
+            _recognizedText.value = ""
+
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
                 setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
@@ -51,77 +62,96 @@ class RecordingViewModel : ViewModel() {
                         Log.d("RecordingViewModel", "User started speaking")
                     }
                     override fun onRmsChanged(rmsdB: Float) {
-                        // Scale the RMS value for the waveform (tweak multiplier as needed)
                         val amp = (rmsdB * 2000).toInt().coerceIn(0, 32767)
                         _amplitude.value = amp
                     }
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {
-                        _isRecording.value = false
                         Log.d("RecordingViewModel", "Speech ended")
+                        if (_isRecording.value) restartListening()
                     }
                     override fun onError(error: Int) {
-                        _isRecording.value = false
                         Log.e("RecordingViewModel", "Speech recognition error: $error")
+                        if (_isRecording.value) restartListening()
                     }
                     override fun onResults(results: Bundle?) {
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         if (!matches.isNullOrEmpty()) {
-                            _recognizedText.value = matches[0]
-                            Log.d("RecordingViewModel", "Recognized text: ${matches[0]}")
+                            val text = matches[0]
+                            if (finalText.isNotEmpty()) finalText.append(' ')
+                            finalText.append(text)
+                            _recognizedText.value = finalText.toString()
+                            Log.d("RecordingViewModel", "Recognized text: $text")
+                        }
+                        if (_isRecording.value) restartListening()
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            val text = matches[0]
+                            val combined = (finalText.toString() + " " + text).trim()
+                            _recognizedText.value = combined
                         }
                     }
-                    override fun onPartialResults(partialResults: Bundle?) {}
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
             }
 
-            // Create the speech recognition intent correctly using Intent constructor
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                // Increase silence timeout so users can pause without stopping recognition
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000)
             }
 
-            // Start listening
-            speechRecognizer?.startListening(intent)
+            startListening()
         }
     }
 
-    /**
-     * Stops the speech recognition.
-     * Calls an internal suspend function inside a coroutine.
-     */
+    /** Stop listening and release the SpeechRecognizer. */
     fun stopRecording() {
         viewModelScope.launch {
             stopRecordingInternal()
         }
     }
 
-    /**
-     * Cancels speech recognition and clears the recognized text.
-     */
+    /** Cancel the current session and clear any accumulated text. */
     fun cancelRecording() {
         viewModelScope.launch {
             stopRecordingInternal()
             _recognizedText.value = ""
+            finalText.clear()
             _amplitude.value = 0
             Log.d("RecordingViewModel", "Speech recognition canceled.")
         }
     }
 
-    /**
-     * Private helper that stops the SpeechRecognizer if active.
-     */
     private suspend fun stopRecordingInternal() {
         if (_isRecording.value) {
-            Log.d("RecordingViewModel", "Stopping speech recognition...")
             _isRecording.value = false
             speechRecognizer?.stopListening()
-            // Wait briefly for final results (if needed)
+            // Allow time for any final results to be returned
             delay(200L)
         }
         _amplitude.value = 0
         speechRecognizer?.destroy()
         speechRecognizer = null
     }
+
+    private fun startListening() {
+        speechRecognizer?.startListening(recognizerIntent)
+    }
+
+    private fun restartListening() {
+        // Restarting immediately can trigger client errors; restart asynchronously
+        viewModelScope.launch {
+            speechRecognizer?.cancel()
+            // Small delay to let the recognizer reset
+            delay(250)
+            startListening()
+        }
+    }
 }
+
