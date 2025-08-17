@@ -24,6 +24,10 @@ class RecordingViewModel : ViewModel() {
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording
 
+    // Indicates if transcription is in progress
+    private val _isTranscribing = MutableStateFlow(false)
+    val isTranscribing: StateFlow<Boolean> = _isTranscribing
+
     // Holds the final recognized text
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
@@ -58,10 +62,12 @@ class RecordingViewModel : ViewModel() {
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {
                         _isRecording.value = false
+                        _isTranscribing.value = true
                         Log.d("RecordingViewModel", "Speech ended")
                     }
                     override fun onError(error: Int) {
                         _isRecording.value = false
+                        _isTranscribing.value = false
                         Log.e("RecordingViewModel", "Speech recognition error: $error")
                     }
                     override fun onResults(results: Bundle?) {
@@ -70,6 +76,7 @@ class RecordingViewModel : ViewModel() {
                             _recognizedText.value = matches[0]
                             Log.d("RecordingViewModel", "Recognized text: ${matches[0]}")
                         }
+                        _isTranscribing.value = false
                     }
                     override fun onPartialResults(partialResults: Bundle?) {}
                     override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -124,6 +131,7 @@ class RecordingViewModel : ViewModel() {
             // Wait briefly for final results (if needed)
             delay(200L)
         }
+        _isTranscribing.value = false
         _amplitude.value = 0
         speechRecognizer?.destroy()
         speechRecognizer = null

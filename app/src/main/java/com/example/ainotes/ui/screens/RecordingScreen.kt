@@ -43,6 +43,7 @@ fun RecordingScreen(
     val context = LocalContext.current
     val amplitude by viewModel.amplitude.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
+    val isTranscribing by viewModel.isTranscribing.collectAsState()
 
     // 1) Create the coroutine scope *here*, inside the composable body
     val scope = rememberCoroutineScope()
@@ -64,7 +65,11 @@ fun RecordingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            AudioWaveform(amplitude = amplitude, isRecording = isRecording)
+            AudioWaveform(
+                amplitude = amplitude,
+                isRecording = isRecording,
+                isTranscribing = isTranscribing
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -99,7 +104,7 @@ fun RecordingScreen(
  * Same waveform code as you have, but amplitude now comes from speech input's onRmsChanged.
  */
 @Composable
-fun AudioWaveform(amplitude: Int, isRecording: Boolean) {
+fun AudioWaveform(amplitude: Int, isRecording: Boolean, isTranscribing: Boolean) {
     val transition = rememberInfiniteTransition()
 
     val scaleFactor = 25f   // tweak as needed for your style
@@ -126,7 +131,7 @@ fun AudioWaveform(amplitude: Int, isRecording: Boolean) {
 
         for (i in 0 until barCount) {
             drawLine(
-                color = if (isRecording) Color.Yellow else Color.Gray,
+                color = if (isRecording || isTranscribing) Color.Yellow else Color.Gray,
                 start = androidx.compose.ui.geometry.Offset(
                     x = i * barWidth,
                     y = size.height / 2 - animatedAmplitude
