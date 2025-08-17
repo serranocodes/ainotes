@@ -21,6 +21,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.example.ainotes.data.AuthInfo
+import com.example.ainotes.data.AuthPreferences
 import com.example.ainotes.viewmodel.AuthViewModel
 
 @Composable
@@ -31,6 +34,14 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var passwordVisible by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val authInfo by AuthPreferences.authInfoFlow(context).collectAsState(initial = AuthInfo())
+
+    LaunchedEffect(authInfo) {
+        if (uiState.email.isBlank() && authInfo.email.isNotEmpty()) {
+            viewModel.onEmailChange(authInfo.email)
+        }
+    }git add
 
     Surface(
         modifier = Modifier
