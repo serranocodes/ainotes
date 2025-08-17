@@ -78,8 +78,9 @@ fun RecordingScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Listening...", fontSize = 24.sp, color = Color.White)
-
+            if (isRecording) {
+                Text("Listening…", fontSize = 24.sp, color = Color.White)
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             Box(
@@ -105,20 +106,22 @@ fun RecordingScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Button(
-                onClick = {
-                    // 2) Use the scope *here* in the onClick
-                    scope.launch {
-                        viewModel.stopRecording()
-                        navController.navigate("transcription")
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-            ) {
-                Text("View transcription", color = Color.White)
-            }
+            if (!isRecording && !isTranscribing) {
+                Button(
+                    onClick = {
+                        // 2) Use the scope *here* in the onClick
+                        scope.launch {
+                            viewModel.stopRecording()
+                            navController.navigate("transcription")
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("View transcription", color = Color.White)
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             TextButton(
                 onClick = {
@@ -132,12 +135,9 @@ fun RecordingScreen(
     }
 }
 
-/**
- * Same waveform code as you have, but amplitude now comes from speech input's onRmsChanged.
- */
 @Composable
 fun AudioWaveform(amplitude: Int, isRecording: Boolean, isTranscribing: Boolean) {
-    val transition = rememberInfiniteTransition()
+    val transition = rememberInfiniteTransition(label = "WaveForm")
 
     val scaleFactor = 25f   // tweak as needed for your style
     val minHeight = 5f
@@ -149,7 +149,7 @@ fun AudioWaveform(amplitude: Int, isRecording: Boolean, isTranscribing: Boolean)
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 300, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
-        )
+        ), label = ""
     )
 
     Canvas(
