@@ -41,7 +41,7 @@ fun LoginScreen(
         if (uiState.email.isBlank() && authInfo.email.isNotEmpty()) {
             viewModel.onEmailChange(authInfo.email)
         }
-    }git add
+    }
 
     Surface(
         modifier = Modifier
