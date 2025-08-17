@@ -162,6 +162,16 @@ fun MainScreen(
                     modifier = Modifier.size(36.dp)
                 )
             }
+
+            /** Transcripts Button **/
+            TextButton(
+                onClick = { navController.navigate("transcripts") },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+            ) {
+                Text("Transcripts", color = Color.White)
+            }
         }
     }
 }

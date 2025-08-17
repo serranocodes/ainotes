@@ -14,11 +14,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.ainotes.viewmodel.RecordingViewModel
+import com.example.ainotes.viewmodel.TranscriptsViewModel
 
 @Composable
 fun TranscriptionScreen(
     navController: NavController,
-    viewModel: RecordingViewModel
+    viewModel: RecordingViewModel,
+    transcriptsViewModel: TranscriptsViewModel
 ) {
     // Collect the recognized text from the ViewModel
     val recognizedText by viewModel.recognizedText.collectAsState()
@@ -73,25 +75,48 @@ fun TranscriptionScreen(
                         }
                     }
                 }
-                // Button to return to Main screen
-                Button(
-                    onClick = {
-                        navController.navigate("main") {
-                            popUpTo("main") { inclusive = false }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
+                // Actions to save or discard the transcript
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = "Back to Main",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E3A8A)
-                    )
+                    Button(
+                        onClick = {
+                            if (recognizedText.isNotBlank()) {
+                                transcriptsViewModel.addTranscript(recognizedText)
+                            }
+                            navController.navigate("transcripts") {
+                                popUpTo("main")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(
+                            text = "Save",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            navController.navigate("main") {
+                                popUpTo("main") { inclusive = false }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(
+                            text = "Discard",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
                 }
             }
         }

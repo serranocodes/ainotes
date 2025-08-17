@@ -11,6 +11,7 @@ import com.example.ainotes.viewmodel.AuthViewModel
 import com.example.ainotes.viewmodel.MainViewModel
 import com.example.ainotes.viewmodel.RecordingViewModel
 import com.example.ainotes.viewmodel.SettingsViewModel
+import com.example.ainotes.viewmodel.TranscriptsViewModel
 
 @Composable
 fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
@@ -21,6 +22,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
     val mainViewModel: MainViewModel = viewModel()
     val recordingViewModel: RecordingViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
+    val transcriptsViewModel: TranscriptsViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = startDestination) {
         // Onboarding Screen
@@ -81,7 +83,16 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
         }
 
         composable("transcription") {
-            TranscriptionScreen(navController, recordingViewModel)
+            TranscriptionScreen(navController, recordingViewModel, transcriptsViewModel)
+        }
+
+        composable("transcripts") {
+            TranscriptsScreen(navController, transcriptsViewModel)
+        }
+
+        composable("transcript_detail/{id}") { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id") ?: ""
+            TranscriptDetailScreen(navController, id, transcriptsViewModel)
         }
 
 
