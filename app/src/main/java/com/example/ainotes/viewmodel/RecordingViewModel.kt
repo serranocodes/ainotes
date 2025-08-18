@@ -9,6 +9,9 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +37,11 @@ class RecordingViewModel : ViewModel() {
 
     // SpeechRecognizer instance
     private var speechRecognizer: SpeechRecognizer? = null
+
+    // Firestore and auth instances, plus current transcription id
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private var currentTranscriptionId: String? = null
 
     /**
      * Starts "recording" (i.e. speech recognition) by creating and starting a SpeechRecognizer.
@@ -119,6 +127,65 @@ class RecordingViewModel : ViewModel() {
             Log.d("RecordingViewModel", "Speech recognition canceled.")
         }
     }
+
+    /**
+     * Updates the recognized text manually, used when user edits the transcription.
+     */
+    fun updateRecognizedText(newText: String) {
+        _recognizedText.value = newText
+    }
+
+    /**
+     * Saves or updates the transcription in Firestore with created/updated timestamps.
+     */
+    fun saveTranscription(text: String, onResult: (Boolean) -> Unit = {}) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            Log.e("RecordingViewModel", "Cannot save transcription: user not authenticated")
+            onResult(false)
+            return
+        }
+
+        val notesCollection = firestore
+            .collection("users")
+            .document(uid)
+            .collection("voiceNotes")
+
+        val data = hashMapOf<String, Any>(
+            "userId" to uid,
+            "text" to text,
+            "updatedAt" to Timestamp.now()
+        )
+
+        val docId = currentTranscriptionId
+        if (docId == null) {
+            data["createdAt"] = Timestamp.now()
+            notesCollection
+                .add(data)
+                .addOnSuccessListener { document ->
+                    currentTranscriptionId = document.id
+                    _recognizedText.value = text
+                    onResult(true)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("RecordingViewModel", "Error saving transcription", e)
+                    onResult(false)
+                }
+        } else {
+            notesCollection
+                .document(docId)
+                .update(data)
+                .addOnSuccessListener {
+                    _recognizedText.value = text
+                    onResult(true)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("RecordingViewModel", "Error updating transcription", e)
+                    onResult(false)
+                }
+        }
+    }
+
 
     /**
      * Private helper that stops the SpeechRecognizer if active.

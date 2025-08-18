@@ -9,12 +9,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.example.ainotes.viewmodel.RecordingViewModel
+import android.widget.Toast
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranscriptionScreen(
     navController: NavController,
@@ -22,6 +26,15 @@ fun TranscriptionScreen(
 ) {
     // Collect the recognized text from the ViewModel
     val recognizedText by viewModel.recognizedText.collectAsState()
+    var isEditing by remember { mutableStateOf(false) }
+    var editableText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    LaunchedEffect(recognizedText) {
+        if (!isEditing) {
+            editableText = recognizedText
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -65,33 +78,102 @@ fun TranscriptionScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Box(modifier = Modifier.padding(24.dp)) {
-                            Text(
-                                text = recognizedText,
-                                fontSize = 20.sp,
-                                color = Color.Black
-                            )
+                            if (isEditing) {
+                                TextField(
+                                    value = editableText,
+                                    onValueChange = { editableText = it },
+                                    textStyle = TextStyle(fontSize = 20.sp, color = Color.Black),
+                                    colors = TextFieldDefaults.textFieldColors(
+                                        containerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                Text(
+                                    text = editableText,
+                                    fontSize = 20.sp,
+                                    color = Color.Black
+                                )
+                            }
                         }
                     }
                 }
-                // Button to return to Main screen
-                Button(
-                    onClick = {
-                        navController.navigate("main") {
-                            popUpTo("main") { inclusive = false }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Back to Main",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E3A8A)
-                    )
+                    Button(
+                        onClick = {
+                            isEditing = false
+                            editableText = recognizedText
+                            viewModel.cancelRecording()
+                            navController.navigate("main") {
+                                popUpTo("main") { inclusive = false }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+
+                    Button(
+                        onClick = { isEditing = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = "Edit",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.saveTranscription(editableText) { success ->
+                                if (success) {
+                                    navController.navigate("main") {
+                                        popUpTo("main") { inclusive = false }
+                                    }
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to save transcription",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            isEditing = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                    ) {
+                        Text(
+                            text = "Save",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
                 }
             }
         }
