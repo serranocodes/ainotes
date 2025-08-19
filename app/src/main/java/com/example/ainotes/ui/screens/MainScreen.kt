@@ -61,6 +61,11 @@ fun MainScreen(
                     PackageManager.PERMISSION_GRANTED
     }
 
+    // Begin observing notes only after the user has reached the main screen
+    LaunchedEffect(Unit) {
+        notesViewModel.startCollectingNotes()
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.Transparent

@@ -2,8 +2,17 @@ package com.example.ainotes.data.model
 
 import java.util.UUID
 
+/**
+ * Representation of a note stored in Firestore.
+ * A public no-arg constructor and mutable properties
+ * are required for Firestore deserialization.
+ */
 data class Note(
-    val id: String = UUID.randomUUID().toString(),
-    val timestamp: Long = System.currentTimeMillis(),
-    val content: String,
-    val isFavorite: Boolean = false
+    var id: String = UUID.randomUUID().toString(),
+    var timestamp: Long = System.currentTimeMillis(),
+    var content: String = "",
+    var isFavorite: Boolean = false
+) {
+    // Empty constructor for Firestore
+    constructor() : this("", 0L, "", false)
+}

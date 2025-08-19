@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class NotesViewModel(
@@ -13,10 +14,21 @@ class NotesViewModel(
     private val _notes = mutableStateListOf<Note>()
     val notes: List<Note> get() = _notes
 
-    init {
-        // Collect notes from repository and keep local state in sync
-        viewModelScope.launch {
-            repository.getNotes().collect { fetched ->
+    /**
+     * Start collecting notes from the repository. This should only be called
+     * after the user has successfully authenticated; otherwise Firestore will
+     * close the flow with an [IllegalStateException].
+     */
+    fun startCollectingNotes() {
+        viewModelScope.launch {repository.getNotes()
+            .catch { e ->
+                if (e is IllegalStateException && e.message == "User not authenticated") {
+                    // User is not signed in – ignore or trigger login flow
+                } else {
+                    throw e
+                }
+            }
+            .collect { fetched ->
                 _notes.clear()
                 _notes.addAll(fetched)
             }
