@@ -150,7 +150,6 @@ fun TranscriptionScreen(
                         onClick = {
                             viewModel.saveTranscription(editableText) { success ->
                                 if (success) {
-                                    notesViewModel.addNote(editableText)
                                     navController.navigate("main") {
                                         popUpTo("main") { inclusive = false }
                                     }
