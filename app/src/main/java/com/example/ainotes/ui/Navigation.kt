@@ -23,6 +23,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
     val mainViewModel: MainViewModel = viewModel()
     val recordingViewModel: RecordingViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
+    val notesViewModel: NotesViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = startDestination) {
         // Onboarding Screen
@@ -103,6 +104,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 viewModel = settingsViewModel // Inject SettingsViewModel
             )
         }
+
         composable("note_detail/{noteId}") { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: return@composable
             val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }

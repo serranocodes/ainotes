@@ -7,4 +7,3 @@ data class Note(
     val timestamp: Long = System.currentTimeMillis(),
     val content: String,
     val isFavorite: Boolean = false
-)

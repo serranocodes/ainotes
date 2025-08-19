@@ -41,6 +41,7 @@ class NotesViewModel(
     }
 
     fun updateNote(id: String, newContent: String) {
+
         val index = _notes.indexOfFirst { it.id == id }
         if (index != -1) {
             val updated = _notes[index].copy(content = newContent)
