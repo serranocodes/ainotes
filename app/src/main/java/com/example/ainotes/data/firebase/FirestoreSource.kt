@@ -15,6 +15,7 @@ import kotlinx.coroutines.tasks.await
  * authenticated user's id. The class exposes flows for realtime updates as
  * well as suspend functions for creating, updating and deleting notes.
  */
+
 class FirestoreSource(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
