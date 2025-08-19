@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -23,12 +25,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.example.ainotes.viewmodel.NotesViewModel
 import com.example.ainotes.viewmodel.RecordingViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun MainScreen(
     navController: NavController,
-    recordingViewModel: RecordingViewModel
+    recordingViewModel: RecordingViewModel,
+    notesViewModel: NotesViewModel
 ) {
     val context = LocalContext.current
     var hasAudioPermission by remember { mutableStateOf(false) }
@@ -40,7 +47,7 @@ fun MainScreen(
         hasAudioPermission = isGranted
         if (isGranted) {
             // As soon as user allows, go directly to Recording
-            navigateToRecordingIfNotBusy(navController, recordingViewModel)
+            navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
         } else {
             Log.e("MainScreen", "Microphone permission denied!")
         }
@@ -66,41 +73,35 @@ fun MainScreen(
                     )
                 )
         ) {
-            /** Content Card **/
-            Column(
+            /** Notes List **/
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 120.dp)
             ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = Color.White,
-                    tonalElevation = 4.dp
-                ) {
-                    Column(
+                items(notesViewModel.notes.sortedByDescending { it.timestamp }) { note ->
+                    Surface(
                         modifier = Modifier
-                            .padding(24.dp)
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .clickable { navController.navigate("note_detail/${note.id}") },
+                        shape = MaterialTheme.shapes.medium,
+                        color = Color.White,
+                        tonalElevation = 4.dp
                     ) {
-                        Text(
-                            text = "Get Started!",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = Color(0xFF1E3A8A),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Text(
-                            text = "NotesApp transcribes and summarizes recorded audio using AI.\n\n" +
-                                    "To start a recording, tap on the record button below.",
-                            fontSize = 16.sp,
-                            color = Color.Gray,
-                            lineHeight = 20.sp
-                        )
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Note ${note.id}",
+                                color = Color(0xFF1E3A8A)
+                            )
+                            Text(
+                                text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(
+                                    Date(note.timestamp)
+                                ),
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 }
             }
@@ -129,7 +130,7 @@ fun MainScreen(
                                     requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 } else {
                                     // Already have permission? Go record
-                                    navigateToRecordingIfNotBusy(navController, recordingViewModel)
+                                    navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
                                 }
                             }
                         )
@@ -171,7 +172,8 @@ fun MainScreen(
  */
 private fun navigateToRecordingIfNotBusy(
     navController: NavController,
-    recordingViewModel: RecordingViewModel
+    recordingViewModel: RecordingViewModel,
+    notesViewModel: NotesViewModel
 ) {
     if (!recordingViewModel.isRecording.value) {
         navController.navigate("recording")
