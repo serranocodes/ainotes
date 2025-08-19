@@ -51,6 +51,8 @@ class RecordingViewModel : ViewModel() {
         viewModelScope.launch {
             // Stop any previous recognition if active
             stopRecordingInternal()
+            // Ensure a fresh transcription for each new session
+            resetTranscription()
 
             // Create a new SpeechRecognizer instance and set its listener
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
@@ -122,7 +124,7 @@ class RecordingViewModel : ViewModel() {
     fun cancelRecording() {
         viewModelScope.launch {
             stopRecordingInternal()
-            _recognizedText.value = ""
+            resetTranscription()
             _amplitude.value = 0
             Log.d("RecordingViewModel", "Speech recognition canceled.")
         }
@@ -133,6 +135,15 @@ class RecordingViewModel : ViewModel() {
      */
     fun updateRecognizedText(newText: String) {
         _recognizedText.value = newText
+    }
+
+    /**
+     * Resets the current transcription state, clearing any recognized text
+     * and forgetting the last saved document ID.
+     */
+    private fun resetTranscription() {
+        currentTranscriptionId = null
+        _recognizedText.value = ""
     }
 
     /**
@@ -166,6 +177,7 @@ class RecordingViewModel : ViewModel() {
                     currentTranscriptionId = document.id
                     _recognizedText.value = text
                     onResult(true)
+                    resetTranscription()
                 }
                 .addOnFailureListener { e ->
                     Log.e("RecordingViewModel", "Error saving transcription", e)
@@ -178,6 +190,7 @@ class RecordingViewModel : ViewModel() {
                 .addOnSuccessListener {
                     _recognizedText.value = text
                     onResult(true)
+                    resetTranscription()
                 }
                 .addOnFailureListener { e ->
                     Log.e("RecordingViewModel", "Error updating transcription", e)
