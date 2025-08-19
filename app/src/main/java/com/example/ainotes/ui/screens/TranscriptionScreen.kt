@@ -16,13 +16,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.example.ainotes.viewmodel.RecordingViewModel
+import com.example.ainotes.viewmodel.NotesViewModel
 import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranscriptionScreen(
     navController: NavController,
-    viewModel: RecordingViewModel
+    viewModel: RecordingViewModel,
+    notesViewModel: NotesViewModel
 ) {
     // Collect the recognized text from the ViewModel
     val recognizedText by viewModel.recognizedText.collectAsState()
@@ -148,6 +150,7 @@ fun TranscriptionScreen(
                         onClick = {
                             viewModel.saveTranscription(editableText) { success ->
                                 if (success) {
+                                    notesViewModel.addNote(editableText)
                                     navController.navigate("main") {
                                         popUpTo("main") { inclusive = false }
                                     }

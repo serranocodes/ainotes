@@ -48,7 +48,7 @@ fun MainScreen(
         hasAudioPermission = isGranted
         if (isGranted) {
             // As soon as user allows, go directly to Recording
-            navigateToRecordingIfNotBusy(navController, recordingViewModel)
+            navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
         } else {
             Log.e("MainScreen", "Microphone permission denied!")
         }
@@ -74,15 +74,13 @@ fun MainScreen(
                     )
                 )
         ) {
-            val notes by notesViewModel.notes.collectAsState()
-
             /** Notes List **/
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 120.dp)
             ) {
-                items(notes.sortedByDescending { it.timestamp }) { note ->
+                items(notesViewModel.notes.sortedByDescending { it.timestamp }) { note ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -94,7 +92,7 @@ fun MainScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "Note ${note.id}",
+                                text = note.content,
                                 color = Color(0xFF1E3A8A)
                             )
                             Text(
@@ -103,13 +101,6 @@ fun MainScreen(
                                 ),
                                 fontSize = 12.sp,
                                 color = Color.Gray
-                            )
-                            Text(
-                                text = note.content,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 12.sp,
-                                color = Color.DarkGray
                             )
                         }
                     }
@@ -140,7 +131,7 @@ fun MainScreen(
                                     requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 } else {
                                     // Already have permission? Go record
-                                    navigateToRecordingIfNotBusy(navController, recordingViewModel)
+                                    navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
                                 }
                             }
                         )
@@ -182,7 +173,8 @@ fun MainScreen(
  */
 private fun navigateToRecordingIfNotBusy(
     navController: NavController,
-    recordingViewModel: RecordingViewModel
+    recordingViewModel: RecordingViewModel,
+    notesViewModel: NotesViewModel
 ) {
     if (!recordingViewModel.isRecording.value) {
         navController.navigate("recording")

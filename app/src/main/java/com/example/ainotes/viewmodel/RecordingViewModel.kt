@@ -9,8 +9,8 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.ainotes.data.model.Note
+import com.example.ainotes.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +38,8 @@ class RecordingViewModel : ViewModel() {
     // SpeechRecognizer instance
     private var speechRecognizer: SpeechRecognizer? = null
 
-    // Firestore and auth instances, plus current transcription id
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    // Repository and auth instances, plus current transcription id
+    private val notesRepository: NotesRepository = NotesRepository()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var currentTranscriptionId: String? = null
 
@@ -147,7 +147,8 @@ class RecordingViewModel : ViewModel() {
     }
 
     /**
-     * Saves or updates the transcription in Firestore with created/updated timestamps.
+     * Saves or updates the transcription using [NotesRepository]. The note is stored under
+     * `users/{uid}/notes` in Firestore. Results are communicated via [onResult].
      */
     fun saveTranscription(text: String, onResult: (Boolean) -> Unit = {}) {
         val uid = auth.currentUser?.uid
@@ -157,45 +158,26 @@ class RecordingViewModel : ViewModel() {
             return
         }
 
-        val notesCollection = firestore
-            .collection("users")
-            .document(uid)
-            .collection("voiceNotes")
+        val note = if (currentTranscriptionId == null) {
+            Note(content = text)
+        } else { Note(id = currentTranscriptionId!!, content = text)
+        }
 
-        val data = hashMapOf<String, Any>(
-            "userId" to uid,
-            "text" to text,
-            "updatedAt" to Timestamp.now()
-        )
-
-        val docId = currentTranscriptionId
-        if (docId == null) {
-            data["createdAt"] = Timestamp.now()
-            notesCollection
-                .add(data)
-                .addOnSuccessListener { document ->
-                    currentTranscriptionId = document.id
-                    _recognizedText.value = text
-                    onResult(true)
-                    resetTranscription()
+        viewModelScope.launch {
+            try {
+                if (currentTranscriptionId == null) {
+                    notesRepository.addNote(note)
+                } else {
+                    notesRepository.updateNote(note)
                 }
-                .addOnFailureListener { e ->
-                    Log.e("RecordingViewModel", "Error saving transcription", e)
-                    onResult(false)
-                }
-        } else {
-            notesCollection
-                .document(docId)
-                .update(data)
-                .addOnSuccessListener {
-                    _recognizedText.value = text
-                    onResult(true)
-                    resetTranscription()
-                }
-                .addOnFailureListener { e ->
-                    Log.e("RecordingViewModel", "Error updating transcription", e)
-                    onResult(false)
-                }
+                currentTranscriptionId = note.id
+                _recognizedText.value = text
+                onResult(true)
+                resetTranscription()
+            } catch (e: Exception) {
+                Log.e("RecordingViewModel", "Error saving transcription", e)
+                onResult(false)
+            }
         }
     }
 

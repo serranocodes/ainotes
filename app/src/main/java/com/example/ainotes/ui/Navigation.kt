@@ -1,6 +1,7 @@
 package com.example.ainotes.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -68,6 +69,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
         }
 
         composable("main") {
+            val notesViewModel: NotesViewModel = viewModel()
             MainScreen(
                 navController = navController,
                 recordingViewModel = recordingViewModel,
@@ -83,10 +85,11 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
-        composable("transcription") {
-            TranscriptionScreen(navController, recordingViewModel)
-        }
-
+        composable("transcription") { backStackEntry ->
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }
+                val notesViewModel: NotesViewModel = viewModel(parentEntry)
+                TranscriptionScreen(navController, recordingViewModel, notesViewModel)
+            }
 
         // Settings Screen
         composable("settings") {
@@ -104,6 +107,8 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
 
         composable("note_detail/{noteId}") { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: return@composable
+            val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }
+            val notesViewModel: NotesViewModel = viewModel(parentEntry)
             NoteDetailScreen(noteId, notesViewModel, navController)
         }
     }

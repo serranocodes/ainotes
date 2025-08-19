@@ -16,7 +16,7 @@ import com.example.ainotes.viewmodel.NotesViewModel
 
 @Composable
 fun NoteDetailScreen(noteId: String, notesViewModel: NotesViewModel, navController: NavController) {
-    val notes by notesViewModel.notes.collectAsState()
+    val notes = notesViewModel.notes
     val note = notes.find { it.id == noteId } ?: return
     var text by remember(note) { mutableStateOf(note.content) }
     var isEditing by remember { mutableStateOf(false) }
@@ -58,7 +58,6 @@ fun NoteDetailScreen(noteId: String, notesViewModel: NotesViewModel, navControll
             IconButton(onClick = {
                 if (isEditing) {
                     notesViewModel.updateNote(noteId, text)
-                    navController.popBackStack()
                 }
                 isEditing = !isEditing
             }) {
