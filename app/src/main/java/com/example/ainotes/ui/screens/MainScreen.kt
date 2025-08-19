@@ -91,7 +91,7 @@ fun MainScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "Note ${note.id}",
+                                text = note.content,
                                 color = Color(0xFF1E3A8A)
                             )
                             Text(

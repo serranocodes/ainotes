@@ -84,10 +84,11 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
-        composable("transcription") {
-            TranscriptionScreen(navController, recordingViewModel)
-        }
-
+        composable("transcription") { backStackEntry ->
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }
+                val notesViewModel: NotesViewModel = viewModel(parentEntry)
+                TranscriptionScreen(navController, recordingViewModel, notesViewModel)
+            }
 
         // Settings Screen
         composable("settings") {
