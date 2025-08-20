@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -80,33 +81,48 @@ fun MainScreen(
                 )
         ) {
             /** Notes List **/
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 120.dp)
-            ) {
-                items(notesViewModel.notes.sortedByDescending { it.timestamp }) { note ->
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable { navController.navigate("note_detail/${note.id}") },
-                        shape = MaterialTheme.shapes.medium,
+            if (notesViewModel.notes.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Welcome to NotesApp! Start recording to create your first note.",
+                        style = MaterialTheme.typography.bodyLarge,
                         color = Color.White,
-                        tonalElevation = 4.dp
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = note.content,
-                                color = Color(0xFF1E3A8A)
-                            )
-                            Text(
-                                text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(
-                                    Date(note.timestamp)
-                                ),
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 120.dp)
+                ) {
+                    items(notesViewModel.notes.sortedByDescending { it.timestamp }) { note ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable { navController.navigate("note_detail/${note.id}") },
+                            shape = MaterialTheme.shapes.medium,
+                            color = Color.White,
+                            tonalElevation = 4.dp
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = note.content,
+                                    color = Color(0xFF1E3A8A)
+                                )
+                                Text(
+                                    text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(
+                                        Date(note.timestamp)
+                                    ),
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
                         }
                     }
                 }
