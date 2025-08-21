@@ -1,12 +1,14 @@
+// File: AppNavigation.kt
 package com.example.ainotes.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.example.ainotes.ui.screens.*
 import com.example.ainotes.viewmodel.AuthViewModel
 import com.example.ainotes.viewmodel.MainViewModel
@@ -68,8 +70,8 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
+        // Main Screen (use the NavHost-level notesViewModel)
         composable("main") {
-            val notesViewModel: NotesViewModel = viewModel()
             MainScreen(
                 navController = navController,
                 recordingViewModel = recordingViewModel,
@@ -85,11 +87,24 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
-        composable("transcription") { backStackEntry ->
-                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }
-                val notesViewModel: NotesViewModel = viewModel(parentEntry)
-                TranscriptionScreen(navController, recordingViewModel, notesViewModel)
-            }
+        // Transcription Screen with query arg: ?mode=edit
+        composable(
+            route = "transcription?mode={mode}",
+            arguments = listOf(
+                navArgument("mode") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = "view" // fallback when not provided
+                }
+            )
+        ) { backStackEntry ->
+            val startInEdit = backStackEntry.arguments?.getString("mode") == "edit"
+            TranscriptionScreen(
+                navController = navController,
+                viewModel = recordingViewModel,
+                startInEdit = startInEdit
+            )
+        }
 
         // Settings Screen
         composable("settings") {
@@ -101,14 +116,13 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                         popUpTo("main") { inclusive = true }
                     }
                 },
-                viewModel = settingsViewModel // Inject SettingsViewModel
+                viewModel = settingsViewModel
             )
         }
 
+        // Note Detail
         composable("note_detail/{noteId}") { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: return@composable
-            val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("main") }
-            val notesViewModel: NotesViewModel = viewModel(parentEntry)
             NoteDetailScreen(noteId, notesViewModel, navController)
         }
     }

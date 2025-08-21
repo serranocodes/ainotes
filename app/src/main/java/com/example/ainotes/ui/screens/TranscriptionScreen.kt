@@ -1,41 +1,51 @@
+// File: TranscriptionScreen.kt
 package com.example.ainotes.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.example.ainotes.viewmodel.RecordingViewModel
-import com.example.ainotes.viewmodel.NotesViewModel
-import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranscriptionScreen(
     navController: NavController,
     viewModel: RecordingViewModel,
-    notesViewModel: NotesViewModel
+    startInEdit: Boolean = false,
 ) {
-    // Collect the recognized text from the ViewModel
     val recognizedText by viewModel.recognizedText.collectAsState()
-    var isEditing by remember { mutableStateOf(false) }
-    var editableText by remember { mutableStateOf("") }
+
+    // Seed editor state from startInEdit; persist across config changes
+    var isEditing by rememberSaveable { mutableStateOf(startInEdit) }
+    var editableText by rememberSaveable { mutableStateOf("") }
+
     val context = LocalContext.current
 
+    // Initialize editor content on first composition
+    LaunchedEffect(Unit) {
+        editableText = recognizedText
+    }
+
+    // Keep editor in sync with latest recognition when NOT editing
     LaunchedEffect(recognizedText) {
-        if (!isEditing) {
-            editableText = recognizedText
-        }
+        if (!isEditing) editableText = recognizedText
     }
 
     Surface(
@@ -62,10 +72,8 @@ fun TranscriptionScreen(
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header and transcription box
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                // Header + transcription card
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Transcribed Text",
                         fontSize = 28.sp,
@@ -103,50 +111,31 @@ fun TranscriptionScreen(
                     }
                 }
 
+                // ICON-ONLY actions: Cancel • Save  (Edit removed)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
+                    // Cancel -> discard draft changes & go back to Recording screen
+                    FilledTonalIconButton(
                         onClick = {
+                            // revert any edits and just pop back; do NOT clear VM transcript
                             isEditing = false
                             editableText = recognizedText
-                            viewModel.cancelRecording()
-                            navController.navigate("main") {
-                                popUpTo("main") { inclusive = false }
-                            }
+                            navController.popBackStack() // back to "recording"
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E3A8A)
+                        modifier = Modifier.size(56.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Color(0x33FF6B6B),
+                            contentColor = Color(0xFFFF6B6B)
                         )
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "Cancel")
                     }
 
-                    Button(
-                        onClick = { isEditing = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                    ) {
-                        Text(
-                            text = "Edit",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E3A8A)
-                        )
-                    }
-
-                    Button(
+                    // Save -> persist & go to Main (keep as before)
+                    FilledIconButton(
                         onClick = {
                             viewModel.saveTranscription(editableText) { success ->
                                 if (success) {
@@ -163,18 +152,13 @@ fun TranscriptionScreen(
                             }
                             isEditing = false
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                    ) {
-                        Text(
-                            text = "Save",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E3A8A)
+                        modifier = Modifier.size(56.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color(0xFF32D74B),
+                            contentColor = Color.White
                         )
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
                 }
             }

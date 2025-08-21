@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.BreakIterator
 import java.util.Locale
+import kotlin.math.max
 import kotlin.math.min
 
 class RecordingViewModel : ViewModel() {
@@ -81,7 +82,7 @@ class RecordingViewModel : ViewModel() {
             _isTranscribing.value = false
             _amplitude.value = 0
             restartPending = false
-            lastPartial = "" // important: clear tail between sessions
+            lastPartial = "" // clear tail between sessions
             try { speechRecognizer?.stopListening() } catch (_: Throwable) {}
         }
     }
@@ -194,25 +195,25 @@ class RecordingViewModel : ViewModel() {
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
-    /** Replace trailing partial and dedupe any overlap with the already-committed text. */
+    /** Replace trailing partial and dedupe any overlap or repetition. */
     private fun appendPartial(newPartial: String) {
         val current = _recognizedText.value
         val prevPartial = lastPartial
 
-        // Remove the *previous* partial once
+        // Remove the previous live tail from the end (once)
         val base = if (prevPartial.isNotEmpty() && current.endsWith(prevPartial)) {
             current.removeSuffix(prevPartial).trimEnd()
         } else current
 
-        // Now smart-merge to avoid cross-restart duplication
-        val merged = smartConcat(base, newPartial)
+        // Append with robust dedupe
+        val merged = mergeAppend(base, newPartial)
         _recognizedText.value = normalize(merged)
 
-        // Tail we just appended (for the next replacement)
+        // Save the newly appended tail (whatever got added beyond `base`)
         lastPartial = normalize(merged.removePrefix(base).trimStart())
     }
 
-    /** Commit final by stripping the live partial and deduping overlap. */
+    /** Commit final by stripping live partial and deduping overlap & repetition. */
     private fun commitFinal(finalText: String) {
         val current = _recognizedText.value
         val prevPartial = lastPartial
@@ -221,7 +222,7 @@ class RecordingViewModel : ViewModel() {
             current.removeSuffix(prevPartial).trimEnd()
         } else current
 
-        val merged = smartConcat(base, finalText)
+        val merged = mergeAppend(base, finalText)
         _recognizedText.value = normalize(merged)
         lastPartial = "" // clear live tail
     }
@@ -231,7 +232,7 @@ class RecordingViewModel : ViewModel() {
         restartPending = true
         _isTranscribing.value = true
         _amplitude.value = 0
-        lastPartial = "" // prevent cross-session duplication
+        lastPartial = "" // avoid carrying a stale tail across sessions
         mainHandler.postDelayed({
             try { speechRecognizer?.stopListening() } catch (_: Throwable) {}
             mainHandler.postDelayed({
@@ -243,36 +244,70 @@ class RecordingViewModel : ViewModel() {
 
     // ---- Helpers ----
 
-    /** Normalize whitespace to keep merges clean. */
+    /** Normalize whitespace. */
     private fun normalize(s: String): String = s.replace(Regex("\\s+"), " ").trim()
 
     /**
-     * Concatenate `addition` to `base` while removing any word-level overlap
-     * where the end of `base` matches the beginning of `addition`.
-     * This protects against engines that resend the whole hypothesis.
+     * Append `addition` to `base` while removing:
+     *  1) any overlap between the end of `base` and the start of `addition`
+     *  2) any prefix of `addition` that already appears ANYWHERE within the last window of `base`
+     *
+     * This prevents the recognizer from duplicating a whole sentence on restarts.
      */
-    private fun smartConcat(base: String, addition: String, maxOverlapWords: Int = 12): String {
-        if (base.isEmpty()) return addition
+    private fun mergeAppend(base: String, addition: String, windowWords: Int = 40): String {
+        if (addition.isBlank()) return base
+        if (base.isBlank()) return addition
+
         val baseWords = words(base)
         val addWords = words(addition)
-        val maxK = min(maxOverlapWords, min(baseWords.size, addWords.size))
+
+        // 1) classic suffix/prefix overlap (fast path)
+        val maxK = min(12, min(baseWords.size, addWords.size)) // up to 12-word exact overlap
         var overlap = 0
         for (k in maxK downTo 1) {
-            var match = true
+            var ok = true
             var i = 0
-            while (i < k && match) {
-                if (!tokensEqual(baseWords[baseWords.size - k + i], addWords[i])) match = false
+            while (i < k && ok) {
+                if (!tokensEqual(baseWords[baseWords.size - k + i], addWords[i])) ok = false
                 i++
             }
-            if (match) { overlap = k; break }
+            if (ok) { overlap = k; break }
         }
-        val addTail = if (overlap == 0) addition else
-            reconstruct(addWords.drop(overlap))
-        return if (addTail.isEmpty()) base else
-            (if (base.isEmpty()) addTail else "$base $addTail")
+        var remainder = if (overlap > 0) reconstruct(addWords.drop(overlap)) else reconstruct(addWords)
+
+        // 2) substring dedupe within a tail window of base (handles full-sentence repeats)
+        if (remainder.isNotEmpty()) {
+            val tailStart = max(0, baseWords.size - windowWords)
+            val tail = baseWords.subList(tailStart, baseWords.size)
+            val addAll = words(remainder) // words still to append
+
+            // find largest prefix of addAll that appears anywhere inside `tail`
+            var cut = 0
+            val maxPrefix = min(addAll.size, windowWords)
+            outer@ for (len in maxPrefix downTo 1) {
+                val prefix = addAll.subList(0, len)
+                // sliding window search in the tail
+                val maxI = tail.size - len
+                for (i in 0..maxI) {
+                    var match = true
+                    var j = 0
+                    while (j < len && match) {
+                        if (!tokensEqual(tail[i + j], prefix[j])) match = false
+                        j++
+                    }
+                    if (match) { cut = len; break@outer }
+                }
+            }
+            if (cut > 0) {
+                val remaining = addAll.drop(cut)
+                remainder = if (remaining.isEmpty()) "" else reconstruct(remaining)
+            }
+        }
+
+        return if (remainder.isEmpty()) base else "$base $remainder"
     }
 
-    /** Split into tokens (words) in a locale-aware way; keep original substrings for reconstruction. */
+    /** Tokenize to words (locale-aware), keeping original substrings for reconstruction. */
     private fun words(s: String): List<String> {
         val it = BreakIterator.getWordInstance(Locale.getDefault())
         it.setText(s)
@@ -294,8 +329,16 @@ class RecordingViewModel : ViewModel() {
         tokens.joinToString(" ")
 
     private fun tokensEqual(a: String, b: String): Boolean {
-        // Compare case-insensitively and ignore simple trailing punctuation
-        fun norm(t: String) = t.trim().trimEnd('.', ',', ';', ':', '!', '?', '…').lowercase()
+        // Case-insensitive, ignore simple punctuation and apostrophes
+        fun norm(t: String): String =
+            t.trim()
+                .lowercase()
+                .replace("’", "'")
+                .replace("`", "'")
+                .replace("´", "'")
+                .replace("'", "") // ignore apostrophes (I'm == Im)
+                .trimEnd('.', ',', ';', ':', '!', '?', '…', ')', ']', '"', '\'')
+
         return norm(a) == norm(b)
     }
 }
