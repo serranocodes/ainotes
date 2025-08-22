@@ -1,4 +1,3 @@
-// File: RecordingScreen.kt
 package com.example.ainotes.ui.screens
 
 import android.Manifest
@@ -15,7 +14,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -25,8 +34,25 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -73,6 +99,10 @@ fun RecordingScreen(
             context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                     android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true
+
+        if (!hasMicPermission) {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     // Auto-start once permission is granted
@@ -102,13 +132,17 @@ fun RecordingScreen(
         if (isRecording) scrollState.animateScrollTo(scrollState.maxValue)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0D0F13)
-    ) {
+    // Palette to match MainScreen
+    val bg = Color(0xFF0D0F13)
+
+    Scaffold(
+        containerColor = bg,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(inner) // respect status & nav bars once
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             // ===== TOP: status + waveform =====
@@ -176,7 +210,7 @@ fun RecordingScreen(
                 }
             }
 
-            // ===== BOTTOM: ICON-ONLY actions (Start/Stop • Edit->direct edit • Save • Cancel) =====
+            // ===== BOTTOM: actions =====
             Spacer(Modifier.height(12.dp))
 
             Row(
@@ -192,7 +226,7 @@ fun RecordingScreen(
                         if (isRecording) viewModel.stopRecording()
                         else viewModel.startRecording(context)
                     },
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.height(56.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = if (isRecording) Color(0xFFFF6B6B) else Color(0xFF3A86FF),
                         contentColor = Color.White
@@ -210,11 +244,11 @@ fun RecordingScreen(
                     onClick = {
                         scope.launch {
                             viewModel.stopRecording()
-                            // NOTE: we pass mode=edit so the destination opens in edit mode immediately
+                            // Open your note detail in edit mode (adjust route to your app's nav)
                             navController.navigate("transcription?mode=edit")
                         }
                     },
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.height(56.dp),
                     colors = IconButtonDefaults.outlinedIconButtonColors(
                         contentColor = Color.White
                     )
@@ -242,7 +276,7 @@ fun RecordingScreen(
                             }
                         }
                     },
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.height(56.dp),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = Color(0x3332D74B),
                         contentColor = Color(0xFF32D74B)
@@ -257,7 +291,7 @@ fun RecordingScreen(
                         viewModel.cancelRecording()
                         navController.popBackStack()
                     },
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.height(56.dp),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = Color(0x33FF6B6B),
                         contentColor = Color(0xFFFF6B6B)
@@ -334,7 +368,7 @@ fun AuroraRibbonWaveform(
         val primaryPath = catmullRomPath(primaryPts, tension = 0.5f)
 
         val secondaryPts = xs.map { x ->
-            Offset(x, yFor(x, baseAmp = 0.75f * (0.5f + energy/2f), phase = t2, f1 = 1.6f, f2 = 3.3f))
+            Offset(x, yFor(x, baseAmp = 0.75f * (0.5f + energy / 2f), phase = t2, f1 = 1.6f, f2 = 3.3f))
         }
         val secondaryPath = catmullRomPath(secondaryPts, tension = 0.5f)
 
@@ -355,13 +389,13 @@ fun AuroraRibbonWaveform(
             drawPath(
                 path = primaryPath,
                 brush = aurora,
-                style = Stroke(width = mainStroke * 1.9f, cap = Stroke.DefaultCap),
+                style = Stroke(width = mainStroke * 1.9f),
                 alpha = 0.06f
             )
             drawPath(
                 path = primaryPath,
                 brush = aurora,
-                style = Stroke(width = mainStroke * 1.4f, cap = Stroke.DefaultCap),
+                style = Stroke(width = mainStroke * 1.4f),
                 alpha = 0.08f
             )
         }
@@ -369,14 +403,14 @@ fun AuroraRibbonWaveform(
         drawPath(
             path = secondaryPath,
             brush = echo,
-            style = Stroke(width = echoStroke, cap = Stroke.DefaultCap),
+            style = Stroke(width = echoStroke),
             alpha = if (active) 0.9f else 0.4f
         )
 
         drawPath(
             path = primaryPath,
             brush = aurora,
-            style = Stroke(width = mainStroke, cap = Stroke.DefaultCap),
+            style = Stroke(width = mainStroke),
             alpha = if (active) 1f else 0.6f
         )
 
