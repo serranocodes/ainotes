@@ -48,7 +48,9 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
         composable("login") {
             LoginScreen(
                 viewModel = authViewModel,
-                onNeedAccountClicked = { navController.navigate("email_sign_up") },
+                // From the login screen, route users to the Sign-Up Options screen
+                // so they can choose between Google or Email registration.
+                onNeedAccountClicked = { navController.navigate("sign_up_options") },
                 onLoginSuccess = {
                     navController.navigate("main") {
                         popUpTo("login") { inclusive = true }
