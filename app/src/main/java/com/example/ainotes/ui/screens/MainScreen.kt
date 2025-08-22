@@ -18,11 +18,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -42,85 +42,100 @@ fun MainScreen(
     val context = LocalContext.current
     var hasAudioPermission by remember { mutableStateOf(false) }
 
-    // 1) Contract for requesting record-audio permission
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         hasAudioPermission = isGranted
         if (isGranted) {
-            // As soon as user allows, go directly to Recording
             navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
         } else {
             Log.e("MainScreen", "Microphone permission denied!")
         }
     }
 
-    // 2) Check current permission once on start
     LaunchedEffect(Unit) {
         hasAudioPermission =
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                     PackageManager.PERMISSION_GRANTED
     }
 
-    // Begin observing notes only after the user has reached the main screen
     LaunchedEffect(Unit) {
         notesViewModel.startCollectingNotes()
     }
 
+    // Palette tuned to match Recording screen look
+    val bg = Color(0xFF0D0F13)          // deep charcoal
+    val card = Color(0xFF141922)        // dark surface
+    val onCard = Color(0xFFECEDEF)      // high-contrast text
+    val subText = Color(0xFF9AA4B2)     // secondary
+    val hairline = Color(0x22FFFFFF)    // ultra subtle borders
+
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color.Transparent
+        color = bg
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF1E3A8A), Color(0xFF1E40AF), Color(0xFF2563EB))
-                    )
-                )
-        ) {
-            /** Notes List **/
+        Box(Modifier.fillMaxSize()) {
             if (notesViewModel.notes.isEmpty()) {
+                // Empty state
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Welcome to NotesApp! Start recording to create your first note.",
+                        text = "Welcome to NotesApp.\nTap record to create your first note.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
+                        color = onCard.copy(alpha = 0.75f),
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        lineHeight = 22.sp,
+                        modifier = Modifier.padding(horizontal = 28.dp)
                     )
                 }
             } else {
+                // Notes list
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 120.dp)
+                        .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(notesViewModel.notes.sortedByDescending { it.timestamp }) { note ->
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+                                .height(160.dp) // ~3 short sentences
+                                .shadow(8.dp, shape = MaterialTheme.shapes.medium, clip = false)
                                 .clickable { navController.navigate("note_detail/${note.id}") },
                             shape = MaterialTheme.shapes.medium,
-                            color = Color.White,
-                            tonalElevation = 4.dp
+                            color = card,
+                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                width = 1.dp,
+                                brush = androidx.compose.ui.graphics.SolidColor(hairline)
+                            )
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                            ) {
                                 Text(
                                     text = note.content,
-                                    color = Color(0xFF1E3A8A)
+                                    color = onCard,
+                                    fontSize = 16.sp,
+                                    lineHeight = 22.sp,
+                                    maxLines = 6, // ~3 sentence preview
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
                                 )
+                                Spacer(Modifier.height(8.dp))
                                 Text(
-                                    text = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(
-                                        Date(note.timestamp)
-                                    ),
+                                    text = SimpleDateFormat(
+                                        "MMM dd, yyyy  HH:mm",
+                                        Locale.getDefault()
+                                    ).format(Date(note.timestamp)),
                                     fontSize = 12.sp,
-                                    color = Color.Gray
+                                    color = subText
                                 )
                             }
                         }
@@ -128,36 +143,30 @@ fun MainScreen(
                 }
             }
 
-            /** Record Button (Entire Circle Clickable) **/
+            /** Record Button **/
             Box(
                 contentAlignment = Alignment.BottomCenter,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 40.dp)
+                    .padding(bottom = 20.dp)
             ) {
-                // Use a single Surface for the red circle and place white circle inside it.
-                // Disable the default ripple effect (black shadow) by setting indication to null.
                 Surface(
                     shape = CircleShape,
-                    color = Color.Red,
+                    color = Color(0xFFFF4B4B), // a bit softer than pure red on black
                     modifier = Modifier
                         .size(80.dp)
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() },
                             onClick = {
-                                Log.d("MainScreen", "Record button clicked")
                                 if (!hasAudioPermission) {
-                                    // Request permission; if user grants, we navigate inside the callback
                                     requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 } else {
-                                    // Already have permission? Go record
                                     navigateToRecordingIfNotBusy(navController, recordingViewModel, notesViewModel)
                                 }
                             }
                         )
                 ) {
-                    // White circle in the center
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize()
@@ -180,18 +189,15 @@ fun MainScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings Icon",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    contentDescription = "Settings",
+                    tint = onCard.copy(alpha = 0.9f),
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
     }
 }
 
-/**
- * Navigates to "recording" if we are not currently recording.
- */
 private fun navigateToRecordingIfNotBusy(
     navController: NavController,
     recordingViewModel: RecordingViewModel,

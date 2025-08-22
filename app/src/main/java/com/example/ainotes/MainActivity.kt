@@ -8,12 +8,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.example.ainotes.data.OnboardingPreferences
 import com.example.ainotes.ui.AppNavigation
+import androidx.core.view.WindowCompat
 import com.example.ainotes.ui.theme.AinotesTheme
 import com.example.ainotes.viewmodel.AuthViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
             AinotesTheme {

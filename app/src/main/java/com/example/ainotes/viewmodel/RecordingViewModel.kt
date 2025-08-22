@@ -95,10 +95,6 @@ class RecordingViewModel : ViewModel() {
         resetTranscription(keepText = false)
     }
 
-    fun updateRecognizedText(newText: String) {
-        _recognizedText.value = normalize(newText)
-    }
-
     fun saveTranscription(text: String, onResult: (Boolean) -> Unit = {}) {
         val uid = auth.currentUser?.uid
         if (uid == null) { onResult(false); return }
@@ -111,6 +107,7 @@ class RecordingViewModel : ViewModel() {
                 else notesRepository.updateNote(note)
                 currentTranscriptionId = note.id
                 _recognizedText.value = normalized
+                resetTranscription(keepText = false)
                 onResult(true)
             } catch (e: Exception) {
                 Log.e("RecordingVM", "Error saving transcription", e)
