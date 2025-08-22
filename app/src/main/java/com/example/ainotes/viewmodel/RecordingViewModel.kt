@@ -44,6 +44,10 @@ class RecordingViewModel : ViewModel() {
     private var controllerJob: Job? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    //Languages
+    private val _languageTag = MutableStateFlow(Locale.getDefault().toLanguageTag())
+    fun setLanguageTag(tag: String) { _languageTag.value = tag }
+
     // Restart throttling
     private var lastRestartMs = 0L
     private val MIN_RESTART_INTERVAL_MS = 1200L
@@ -132,31 +136,39 @@ class RecordingViewModel : ViewModel() {
         if (!keepText) _recognizedText.value = ""
     }
 
+    // RecordingViewModel.kt
     private fun startListeningInternal() {
+        val tag = _languageTag.value  // e.g., "es-ES", "en-US"
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, tag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, tag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            // Prefer on-device when available → fewer handoffs/earcons
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            // Make the endpointer more patient
+
+            // Use cloud when needed → many locales aren’t available offline
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+
+            // Endpointer tuning (optional)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 8000)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 15000)
-            // Optional better formatting on some engines
+
+            // Optional extras some engines honor
             putExtra("android.speech.extra.ENABLE_FORMATTING", "quality")
-            // Some engines support segmented sessions; harmless if ignored
             putExtra("android.speech.extra.SEGMENTED_SESSION", true)
         }
+
+        Log.d("RecordingVM", "Recognizer language = $tag")
         try {
             speechRecognizer?.startListening(intent)
             lastRestartMs = System.currentTimeMillis()
         } catch (t: Throwable) {
             Log.e("RecordingVM", "startListening failed", t)
-            restartAfterSegment() // try again with throttle
+            restartAfterSegment()
         }
     }
+
 
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {}

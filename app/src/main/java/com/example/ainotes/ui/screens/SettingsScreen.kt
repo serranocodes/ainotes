@@ -42,9 +42,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ainotes.viewmodel.SettingsViewModel
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.ainotes.data.TranscriptionPreferences
+import com.example.ainotes.util.LanguageCodes
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +68,9 @@ fun SettingsScreen(
     val hairline = Color(0x22FFFFFF)
     val onBg = Color(0xFFECEDEF)
     val subText = Color(0xFF9AA4B2)
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         containerColor = bg,
@@ -103,7 +111,7 @@ fun SettingsScreen(
                     .padding(inner)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp) // breathing room above nav bar
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 // ---- USAGE ----
                 item { SectionHeader("USAGE") }
@@ -126,7 +134,7 @@ fun SettingsScreen(
                 item {
                     SettingsItem(
                         title = "Transcription Language",
-                        value = userData?.transcriptionLanguage ?: "English",
+                        value = userData?.transcriptionLanguage ?: "English (US)",
                         onClick = { showLanguageDialog = true }
                     )
                 }
@@ -179,10 +187,16 @@ fun SettingsScreen(
             if (showLanguageDialog) {
                 LanguageSelectionDialog(
                     availableLanguages = availableLanguages,
-                    selectedLanguage = userData?.transcriptionLanguage ?: "English",
+                    selectedLanguage = userData?.transcriptionLanguage ?: "English (US)",
                     onDismiss = { showLanguageDialog = false },
-                    onLanguageSelected = {
-                        viewModel.updateTranscriptionLanguage(it)
+                    onLanguageSelected = { displayName ->
+                        // 1) Save UI label to Firestore
+                        viewModel.updateTranscriptionLanguage(displayName)
+                        // 2) Save engine tag locally for the recognizer
+                        val tag = LanguageCodes.nameToTag(displayName)
+                        scope.launch {
+                            TranscriptionPreferences.setLanguageTag(context, tag)
+                        }
                         showLanguageDialog = false
                     }
                 )

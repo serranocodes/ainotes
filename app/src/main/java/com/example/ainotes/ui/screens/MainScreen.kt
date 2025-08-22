@@ -167,7 +167,7 @@ fun MainScreen(
                 contentAlignment = Alignment.BottomCenter,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 32.dp)
+                    .padding(bottom = 10.dp)
             ) {
                 Surface(
                     shape = CircleShape,
@@ -197,7 +197,7 @@ fun MainScreen(
                 onClick = { navController.navigate("settings") },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(16.dp)
+                    .padding(10.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,

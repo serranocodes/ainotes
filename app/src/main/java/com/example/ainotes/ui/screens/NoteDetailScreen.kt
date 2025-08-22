@@ -154,7 +154,7 @@ fun NoteDetailScreen(
                 tonalElevation = 0.dp,
                 shape = MaterialTheme.shapes.large,
                 border = if (isEditing)
-                    BorderStroke(1.dp, Color(0x33FF6B6B))
+                    BorderStroke(1.dp, Color(0x8DE30303))
                 else
                     BorderStroke(1.dp, Color(0x22FFFFFF))
             ) {

@@ -1,3 +1,4 @@
+// File: RecordingScreen.kt
 package com.example.ainotes.ui.screens
 
 import android.Manifest
@@ -39,7 +40,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -67,8 +67,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
+import com.example.ainotes.data.TranscriptionPreferences
 import com.example.ainotes.viewmodel.RecordingViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
@@ -87,13 +90,18 @@ fun RecordingScreen(
     val isTranscribing by viewModel.isTranscribing.collectAsState()
     val recognizedText by viewModel.recognizedText.collectAsState()
 
+    // ── Language tag from DataStore (falls back to device locale)
+    val languageTag by TranscriptionPreferences
+        .languageTagFlow(context)
+        .collectAsState(initial = Locale.getDefault().toLanguageTag())
+
     // Permission
     var hasMicPermission by remember { mutableStateOf(false) }
     val micPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasMicPermission = granted }
 
-    // Initial permission check (best-effort)
+    // Initial permission check
     LaunchedEffect(Unit) {
         hasMicPermission = if (Build.VERSION.SDK_INT >= 23) {
             context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
@@ -105,11 +113,18 @@ fun RecordingScreen(
         }
     }
 
-    // Auto-start once permission is granted
-    LaunchedEffect(hasMicPermission) {
-        if (hasMicPermission && !viewModel.isRecording.value) {
-            viewModel.startRecording(context)
-        }
+    // Auto-apply language + start once permission is granted
+    // (re-applies if user changes language in Settings while on this screen)
+    LaunchedEffect(hasMicPermission, languageTag) {
+        if (!hasMicPermission) return@LaunchedEffect
+
+        // Apply new tag to VM
+        viewModel.setLanguageTag(languageTag)
+
+        // Restart session so the new tag is used immediately
+        viewModel.stopRecording()
+        delay(150) // small pause to let the engine release
+        viewModel.startRecording(context)
     }
 
     // Stop when app goes background
@@ -132,7 +147,6 @@ fun RecordingScreen(
         if (isRecording) scrollState.animateScrollTo(scrollState.maxValue)
     }
 
-    // Palette to match MainScreen
     val bg = Color(0xFF0D0F13)
 
     Scaffold(
@@ -142,7 +156,7 @@ fun RecordingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner) // respect status & nav bars once
+                .padding(inner)
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             // ===== TOP: status + waveform =====
@@ -244,7 +258,6 @@ fun RecordingScreen(
                     onClick = {
                         scope.launch {
                             viewModel.stopRecording()
-                            // Open your note detail in edit mode (adjust route to your app's nav)
                             navController.navigate("transcription?mode=edit")
                         }
                     },
