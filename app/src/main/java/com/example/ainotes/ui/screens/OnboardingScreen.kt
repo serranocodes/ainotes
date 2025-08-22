@@ -1,107 +1,156 @@
+// File: OnboardingScreen.kt
 package com.example.ainotes.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import com.example.ainotes.data.OnboardingPreferences
 import kotlinx.coroutines.launch
 
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
-    // Track the current onboarding screen
-    var currentPage by remember { mutableStateOf(0) }
-
-    // List of onboarding screens
-    val onboardingScreens = listOf(
+    var currentPage by remember { mutableIntStateOf(0) }
+    val pages = listOf(
         "Note-Taking Made Simple",
         "Voice Your Ideas",
         "Stay Synced Across Devices",
         "Get Started Today!"
     )
 
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF1E3A8A), Color(0xFF1E40AF), Color(0xFF2563EB))
-                )
-            ),
-        color = Color.Transparent
-    ) {
-        Column(
+    // Palette (matches the rest of the app)
+    val bg = Color(0xFF0D0F13)
+    val onBg = Color(0xFFECEDEF)
+    val sub = Color(0xFF9AA4B2)
+
+    Scaffold(
+        containerColor = bg,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { inner ->
+        Surface(
+            color = Color.Transparent,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(inner)
+                .padding(horizontal = 24.dp)
         ) {
-            // Onboarding Text
-            Text(
-                text = onboardingScreens[currentPage],
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
-
-            // Progress Dots
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(), // keep button off the gesture bar
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                onboardingScreens.forEachIndexed { index, _ ->
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .padding(4.dp)
-                            .background(
-                                color = if (index == currentPage) Color.White else Color.Gray,
-                                shape = CircleShape
-                            )
+                Spacer(Modifier.weight(1f, fill = true))
+
+                // Title
+                Text(
+                    text = pages[currentPage],
+                    color = onBg,
+                    fontSize = 26.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = when (currentPage) {
+                        0 -> "Capture thoughts instantly and keep them organized."
+                        1 -> "Hands-free dictation with clean, readable transcripts."
+                        2 -> "Your notes, available on all your devices."
+                        else -> "Ready when you are."
+                    },
+                    color = sub,
+                    fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(28.dp))
+
+                // Progress dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    pages.forEachIndexed { i, _ ->
+                        Box(
+                            modifier = Modifier
+                                .height(10.dp)
+                                .fillMaxWidth(fraction = 0f) // ignore width; we size by height below
+                                .background(
+                                    color = if (i == currentPage) onBg else onBg.copy(alpha = 0.28f),
+                                    shape = CircleShape
+                                )
+                                .let {
+                                    // make them circles by explicit size
+                                    it.then(Modifier.height(10.dp))
+                                }
+                                .then(Modifier
+                                    .background(
+                                        color = if (i == currentPage) onBg else onBg.copy(alpha = 0.28f),
+                                        shape = CircleShape
+                                    )
+                                )
+                                .then(Modifier
+                                    .padding(horizontal = 0.dp)
+                                ),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                // Continue / Get Started
+                Button(
+                    onClick = {
+                        if (currentPage < pages.lastIndex) {
+                            currentPage++
+                        } else {
+                            scope.launch {
+                                OnboardingPreferences.setOnboardingCompleted(context)
+                                onComplete()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = onBg),
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text(
+                        text = if (currentPage < pages.lastIndex) "Continue" else "Get Started",
+                        color = Color(0xFF1E3A8A)
                     )
                 }
-            }
 
-            // Continue Button
-            Button(
-                onClick = {
-                    if (currentPage < onboardingScreens.lastIndex) {
-                        // Move to the next screen
-                        currentPage++
-                    } else {
-                        // Save onboarding completion and navigate to login
-                        coroutineScope.launch {
-                            OnboardingPreferences.setOnboardingCompleted(context)
-                            onComplete()
-                        }
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                Text(
-                    text = if (currentPage < onboardingScreens.lastIndex) "Continue" else "Get Started",
-                    color = Color(0xFF1E3A8A),
-                    fontWeight = FontWeight.Bold
-                )
+                Spacer(Modifier.weight(1f, fill = true))
             }
         }
     }
