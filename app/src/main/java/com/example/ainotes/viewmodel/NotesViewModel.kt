@@ -13,6 +13,7 @@ class NotesViewModel(
 ) : ViewModel() {
     private val _notes = mutableStateListOf<Note>()
     val notes: List<Note> get() = _notes
+    private val migratedNoteIds = mutableSetOf<String>()
 
     /**
      * Start collecting notes from the repository. This should only be called
@@ -20,7 +21,8 @@ class NotesViewModel(
      * close the flow with an [IllegalStateException].
      */
     fun startCollectingNotes() {
-        viewModelScope.launch {repository.getNotes()
+        viewModelScope.launch {
+            repository.getNotes()
             .catch { e ->
                 if (e is IllegalStateException && e.message == "User not authenticated") {
                     // User is not signed in – ignore or trigger login flow
@@ -29,14 +31,25 @@ class NotesViewModel(
                 }
             }
             .collect { fetched ->
+                val sanitized = fetched.map { note ->
+                    if (note.title.isBlank()) {
+                        val fallback = Note.fallbackTitleFromContent(note.content)
+                        val updated = note.copy(title = fallback)
+                        if (note.id.isNotBlank() && migratedNoteIds.add(note.id)) {
+                            viewModelScope.launch { repository.updateNote(updated) }
+                        }
+                        updated
+                    } else note
+                }
                 _notes.clear()
-                _notes.addAll(fetched)
+                _notes.addAll(sanitized)
             }
         }
     }
 
     fun addNote(content: String) {
-        val note = Note(content = content)
+        val fallback = Note.fallbackTitleFromContent(content)
+        val note = Note(content = content, title = fallback)
         _notes.add(note)
         viewModelScope.launch { repository.addNote(note) }
     }
@@ -56,7 +69,10 @@ class NotesViewModel(
 
         val index = _notes.indexOfFirst { it.id == id }
         if (index != -1) {
-            val updated = _notes[index].copy(content = newContent)
+            val current = _notes[index]
+            val updatedTitle = if (current.title.isNotBlank()) current.title
+            else Note.fallbackTitleFromContent(newContent)
+            val updated = current.copy(content = newContent, title = updatedTitle)
             _notes[index] = updated
             viewModelScope.launch { repository.updateNote(updated) }
         }
