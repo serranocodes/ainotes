@@ -137,6 +137,14 @@ fun MainScreen(
                                     .padding(16.dp)
                             ) {
                                 Text(
+                                    text = note.resolvedTitle,
+                                    color = onCard,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
                                     text = note.content,
                                     color = onCard,
                                     fontSize = 16.sp,

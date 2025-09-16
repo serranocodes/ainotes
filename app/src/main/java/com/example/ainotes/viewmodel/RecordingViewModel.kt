@@ -11,6 +11,7 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ainotes.data.ai.NoteTitleGenerator
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -103,10 +104,13 @@ class RecordingViewModel : ViewModel() {
         val uid = auth.currentUser?.uid
         if (uid == null) { onResult(false); return }
         val normalized = normalize(text)
-        val note = if (currentTranscriptionId == null) Note(content = normalized)
-        else Note(id = currentTranscriptionId!!, content = normalized)
         viewModelScope.launch {
             try {
+                val generatedTitle = NoteTitleGenerator.generateTitle(normalized)
+                val note = if (currentTranscriptionId == null) Note(content = normalized)
+                else Note(id = currentTranscriptionId!!, content = normalized)
+                note.title = generatedTitle
+
                 if (currentTranscriptionId == null) notesRepository.addNote(note)
                 else notesRepository.updateNote(note)
                 currentTranscriptionId = note.id

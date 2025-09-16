@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
 }
 
+val geminiApiKey = (System.getenv("GEMINI_API_KEY")
+    ?: (project.findProperty("GEMINI_API_KEY") as? String)
+    ?: "")
+
 android {
     namespace = "com.example.ainotes"
     compileSdk = 35
@@ -15,9 +19,18 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"${geminiApiKey.replace("\"", "\\\"")}\""
+        )
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     // Let the Kotlin Compose plugin pick the right compiler extension.
     // (No composeOptions{} block needed.)
@@ -55,6 +68,8 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.android.gms:play-services-auth:21.1.1")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    implementation("com.google.ai.client.generativeai:generativeai:0.6.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
