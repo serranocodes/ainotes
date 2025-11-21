@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.ainotes.data.AiSummaryPreferences
 import com.example.ainotes.viewmodel.RecordingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +38,13 @@ fun TranscriptionScreen(
     var editableText by rememberSaveable { mutableStateOf("") }
 
     val context = LocalContext.current
+
+    val autoTitleSummary by AiSummaryPreferences
+        .autoTitleEnabled(context)
+        .collectAsState(initial = false)
+    val autoNoteSummary by AiSummaryPreferences
+        .autoNoteEnabled(context)
+        .collectAsState(initial = false)
 
     // Initialize editor content on first composition
     LaunchedEffect(Unit) {
@@ -137,7 +145,12 @@ fun TranscriptionScreen(
                     // Save -> persist & go to Main (keep as before)
                     FilledIconButton(
                         onClick = {
-                            viewModel.saveTranscription(editableText) { success ->
+                            viewModel.saveTranscription(
+                                context = context,
+                                text = editableText,
+                                useAiTitle = autoTitleSummary,
+                                useAiContentSummary = autoNoteSummary
+                            ) { success ->
                                 if (success) {
                                     navController.navigate("main") {
                                         popUpTo("main") { inclusive = false }

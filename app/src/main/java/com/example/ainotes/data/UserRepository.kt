@@ -34,7 +34,9 @@ class UserRepository(
                         autoDeleteNotes = preferences["autoDeleteNotes"] as? Boolean ?: true,
                         categoryDetection = preferences["categoryDetection"] as? Boolean ?: true,
                         smartSummaries = preferences["smartSummaries"] as? Boolean ?: true,
-                        transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true
+                        transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true,
+                        autoTitleSummary = preferences["autoTitleSummary"] as? Boolean ?: false,
+                        autoNoteSummary = preferences["autoNoteSummary"] as? Boolean ?: false
                     )
                 } else {
                     // If preferences don't exist, create default preferences.
@@ -43,7 +45,9 @@ class UserRepository(
                         "autoDeleteNotes" to true,
                         "categoryDetection" to true,
                         "smartSummaries" to true,
-                        "transcriptionEnabled" to true
+                        "transcriptionEnabled" to true,
+                        "autoTitleSummary" to false,
+                        "autoNoteSummary" to false
                     )
                     userRef.update("preferences", defaultPreferences)
                     UserData(
@@ -53,7 +57,9 @@ class UserRepository(
                         autoDeleteNotes = true,
                         categoryDetection = true,
                         smartSummaries = true,
-                        transcriptionEnabled = true
+                        transcriptionEnabled = true,
+                        autoTitleSummary = false,
+                        autoNoteSummary = false
                     )
                 }
                 trySend(data)
@@ -64,7 +70,9 @@ class UserRepository(
                     "autoDeleteNotes" to true,
                     "categoryDetection" to true,
                     "smartSummaries" to true,
-                    "transcriptionEnabled" to true
+                    "transcriptionEnabled" to true,
+                    "autoTitleSummary" to false,
+                    "autoNoteSummary" to false
                 )
                 val newUserData = UserData(
                     name = "Unknown Name",
@@ -73,7 +81,9 @@ class UserRepository(
                     autoDeleteNotes = true,
                     categoryDetection = true,
                     smartSummaries = true,
-                    transcriptionEnabled = true
+                    transcriptionEnabled = true,
+                    autoTitleSummary = false,
+                    autoNoteSummary = false
                 )
                 userRef.set(
                     mapOf(
