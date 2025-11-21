@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
+import com.example.ainotes.data.AiSummaryPreferences
 import com.example.ainotes.data.TranscriptionPreferences
 import com.example.ainotes.viewmodel.RecordingViewModel
 import kotlinx.coroutines.delay
@@ -94,6 +95,13 @@ fun RecordingScreen(
     val languageTag by TranscriptionPreferences
         .languageTagFlow(context)
         .collectAsState(initial = Locale.getDefault().toLanguageTag())
+
+    val autoTitleSummary by AiSummaryPreferences
+        .autoTitleEnabled(context)
+        .collectAsState(initial = false)
+    val autoNoteSummary by AiSummaryPreferences
+        .autoNoteEnabled(context)
+        .collectAsState(initial = false)
 
     // Permission
     var hasMicPermission by remember { mutableStateOf(false) }
@@ -276,7 +284,12 @@ fun RecordingScreen(
                         scope.launch {
                             viewModel.stopRecording()
                             val text = recognizedText
-                            viewModel.saveTranscription(text) { ok ->
+                            viewModel.saveTranscription(
+                                context = context,
+                                text = text,
+                                useAiTitle = autoTitleSummary,
+                                useAiContentSummary = autoNoteSummary
+                            ) { ok ->
                                 if (ok) {
                                     navController.popBackStack()
                                 } else {

@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ainotes"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -70,6 +70,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     implementation("com.google.ai.client.generativeai:generativeai:0.6.0")
+    implementation("com.google.mlkit:genai-summarization:1.0.0-beta1")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
