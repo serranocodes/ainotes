@@ -154,6 +154,30 @@ fun NoteDetailScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+            if (note.aiSummary.isNotBlank()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    color = Color(0xFF13171E),
+                    shape = MaterialTheme.shapes.medium,
+                    border = BorderStroke(1.dp, Color(0x22FFFFFF))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "AI Summary",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color(0xFF9AA4B2)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = note.aiSummary,
+                            style = bodyStyle,
+                            color = Color(0xFFECECEC)
+                        )
+                    }
+                }
+            }
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()

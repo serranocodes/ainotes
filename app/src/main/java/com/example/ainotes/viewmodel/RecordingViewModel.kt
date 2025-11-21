@@ -11,6 +11,7 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ainotes.data.ai.NoteSummarizer
 import com.example.ainotes.data.ai.NoteTitleGenerator
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
@@ -100,16 +101,36 @@ class RecordingViewModel : ViewModel() {
         resetTranscription(keepText = false)
     }
 
-    fun saveTranscription(text: String, onResult: (Boolean) -> Unit = {}) {
+    fun saveTranscription(
+        context: Context,
+        text: String,
+        useAiTitle: Boolean = false,
+        useAiContentSummary: Boolean = false,
+        onResult: (Boolean) -> Unit = {}
+    ) {
         val uid = auth.currentUser?.uid
         if (uid == null) { onResult(false); return }
         val normalized = normalize(text)
         viewModelScope.launch {
             try {
-                val generatedTitle = NoteTitleGenerator.generateTitle(normalized)
+                val generatedTitle = if (useAiTitle) {
+                    NoteSummarizer
+                        .summarizeForTitle(context, normalized)
+                        .ifBlank { NoteTitleGenerator.generateTitle(normalized) }
+                } else {
+                    NoteTitleGenerator.generateTitle(normalized)
+                }
+
+                val aiSummary = if (useAiContentSummary) {
+                    NoteSummarizer.summarizeContent(context, normalized)
+                } else {
+                    ""
+                }
+
                 val note = if (currentTranscriptionId == null) Note(content = normalized)
                 else Note(id = currentTranscriptionId!!, content = normalized)
                 note.title = generatedTitle
+                note.aiSummary = aiSummary
 
                 if (currentTranscriptionId == null) notesRepository.addNote(note)
                 else notesRepository.updateNote(note)
