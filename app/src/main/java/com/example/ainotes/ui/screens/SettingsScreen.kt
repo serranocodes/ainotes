@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ainotes.viewmodel.SettingsViewModel
 import androidx.compose.runtime.rememberCoroutineScope
+import com.example.ainotes.data.AiSummaryPreferences
 import com.example.ainotes.data.TranscriptionPreferences
 import com.example.ainotes.util.LanguageCodes
 import kotlinx.coroutines.launch
@@ -71,6 +73,11 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(userData?.autoTitleSummary, userData?.autoNoteSummary) {
+        userData?.autoTitleSummary?.let { scope.launch { AiSummaryPreferences.setAutoTitle(context, it) } }
+        userData?.autoNoteSummary?.let { scope.launch { AiSummaryPreferences.setAutoNote(context, it) } }
+    }
 
     Scaffold(
         containerColor = bg,
@@ -161,6 +168,24 @@ fun SettingsScreen(
                         title = "Enable Transcription",
                         value = userData?.transcriptionEnabled ?: true
                     ) { viewModel.updatePreference("transcriptionEnabled", it) }
+                }
+                item {
+                    ToggleItem(
+                        title = "AI Title Summaries",
+                        value = userData?.autoTitleSummary ?: false
+                    ) {
+                        viewModel.updatePreference("autoTitleSummary", it)
+                        scope.launch { AiSummaryPreferences.setAutoTitle(context, it) }
+                    }
+                }
+                item {
+                    ToggleItem(
+                        title = "AI Note Summaries",
+                        value = userData?.autoNoteSummary ?: false
+                    ) {
+                        viewModel.updatePreference("autoNoteSummary", it)
+                        scope.launch { AiSummaryPreferences.setAutoNote(context, it) }
+                    }
                 }
 
                 item { Divider(color = hairline, thickness = 1.dp) }
@@ -307,7 +332,7 @@ fun SettingsItem(
 
 @Composable
 fun ToggleItem(title: String, value: Boolean, onToggle: (Boolean) -> Unit) {
-    var state by remember { mutableStateOf(value) }
+    var state by remember(value) { mutableStateOf(value) }
 
     Row(
         modifier = Modifier
