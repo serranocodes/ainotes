@@ -9,6 +9,7 @@ The app can optionally generate on-device summaries for both note titles and not
 - Android 8.0 (API 26) or higher.
 - The Google AICore app present and initialized on the device (required by ML Kit's GenAI APIs).
 - A network connection on first run so AICore and the summarization adapter can download if needed.
+- Android SDK Platform 34 installed locally (the project builds against compileSdk 34).
 
 ### Expected behavior
 
@@ -31,3 +32,4 @@ The app can optionally generate on-device summaries for both note titles and not
 
 - If summarization fails immediately after device setup, wait for AICore initialization and retry.
 - Devices with unlocked bootloaders are not supported by the ML Kit GenAI APIs.
+- If Android Studio reports missing build artifacts, ensure SDK Platform 34 is installed and run **Build ▸ Clean Project** followed by **Build ▸ Rebuild Project**.

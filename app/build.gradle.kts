@@ -11,7 +11,7 @@ val geminiApiKey = (System.getenv("GEMINI_API_KEY")
 
 android {
     namespace = "com.example.ainotes"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.ainotes"
