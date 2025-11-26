@@ -145,7 +145,7 @@ fun MainScreen(
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = note.content,
+                                    text = if (note.aiSummary.isNotBlank()) note.aiSummary else note.content,
                                     color = onCard,
                                     fontSize = 16.sp,
                                     lineHeight = 22.sp,

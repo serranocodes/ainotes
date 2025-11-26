@@ -54,7 +54,9 @@ class SettingsViewModel : ViewModel() {
                             autoDeleteNotes = preferences["autoDeleteNotes"] as? Boolean ?: true,
                             categoryDetection = preferences["categoryDetection"] as? Boolean ?: true,
                             smartSummaries = preferences["smartSummaries"] as? Boolean ?: true,
-                            transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true
+                            transcriptionEnabled = preferences["transcriptionEnabled"] as? Boolean ?: true,
+                            autoTitleSummary = preferences["autoTitleSummary"] as? Boolean ?: false,
+                            autoNoteSummary = preferences["autoNoteSummary"] as? Boolean ?: false
                         )
                     } else {
                         // Document exists but no preferences field – create defaults
@@ -63,7 +65,9 @@ class SettingsViewModel : ViewModel() {
                             "autoDeleteNotes" to true,
                             "categoryDetection" to true,
                             "smartSummaries" to true,
-                            "transcriptionEnabled" to true
+                            "transcriptionEnabled" to true,
+                            "autoTitleSummary" to false,
+                            "autoNoteSummary" to false
                         )
                         userRef.update("preferences", defaultPreferences)
                             .addOnSuccessListener {
@@ -79,7 +83,9 @@ class SettingsViewModel : ViewModel() {
                             autoDeleteNotes = true,
                             categoryDetection = true,
                             smartSummaries = true,
-                            transcriptionEnabled = true
+                            transcriptionEnabled = true,
+                            autoTitleSummary = false,
+                            autoNoteSummary = false
                         )
                     }
                 } else {
@@ -89,7 +95,9 @@ class SettingsViewModel : ViewModel() {
                         "autoDeleteNotes" to true,
                         "categoryDetection" to true,
                         "smartSummaries" to true,
-                        "transcriptionEnabled" to true
+                        "transcriptionEnabled" to true,
+                        "autoTitleSummary" to false,
+                        "autoNoteSummary" to false
                     )
                     val newUserData = UserData(
                         name = "Unknown Name",
@@ -98,7 +106,9 @@ class SettingsViewModel : ViewModel() {
                         autoDeleteNotes = true,
                         categoryDetection = true,
                         smartSummaries = true,
-                        transcriptionEnabled = true
+                        transcriptionEnabled = true,
+                        autoTitleSummary = false,
+                        autoNoteSummary = false
                     )
                     userRef.set(
                         mapOf(
@@ -147,6 +157,8 @@ class SettingsViewModel : ViewModel() {
                     "categoryDetection" -> _userData.value?.copy(categoryDetection = value as Boolean)
                     "smartSummaries" -> _userData.value?.copy(smartSummaries = value as Boolean)
                     "transcriptionEnabled" -> _userData.value?.copy(transcriptionEnabled = value as Boolean)
+                    "autoTitleSummary" -> _userData.value?.copy(autoTitleSummary = value as Boolean)
+                    "autoNoteSummary" -> _userData.value?.copy(autoNoteSummary = value as Boolean)
                     else -> _userData.value
                 }
             }
@@ -193,4 +205,6 @@ data class UserData(
     val categoryDetection: Boolean = true,
     val smartSummaries: Boolean = true,
     val transcriptionEnabled: Boolean = true,
+    val autoTitleSummary: Boolean = false,
+    val autoNoteSummary: Boolean = false,
 )
