@@ -13,10 +13,12 @@ data class Note(
     var timestamp: Long = System.currentTimeMillis(),
     var title: String = "",
     var content: String = "",
-    var isFavorite: Boolean = false
+    var isFavorite: Boolean = false,
+    var rawText: String? = null,
+    var cleanText: String? = null
 ) {
     // Empty constructor for Firestore
-    constructor() : this("", 0L, "", "", false)
+    constructor() : this("", 0L, "", "", false, null, null)
 
     val resolvedTitle: String
         get() = if (title.isNotBlank()) title else fallbackTitleFromContent(content)
