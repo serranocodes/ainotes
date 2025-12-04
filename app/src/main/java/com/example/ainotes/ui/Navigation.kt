@@ -1,0 +1,131 @@
+// File: AppNavigation.kt
+package com.example.ainotes.ui
+
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.example.ainotes.ui.screens.*
+import com.example.ainotes.viewmodel.AuthViewModel
+import com.example.ainotes.viewmodel.MainViewModel
+import com.example.ainotes.viewmodel.RecordingViewModel
+import com.example.ainotes.viewmodel.SettingsViewModel
+import com.example.ainotes.viewmodel.NotesViewModel
+
+@Composable
+fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
+    val navController: NavHostController = rememberNavController()
+    val startDestination = if (startWithOnboarding) "onboarding" else "login"
+
+    // Provide ViewModels at the NavHost level to persist across screens
+    val mainViewModel: MainViewModel = viewModel()
+    val recordingViewModel: RecordingViewModel = viewModel()
+    val settingsViewModel: SettingsViewModel = viewModel()
+    val notesViewModel: NotesViewModel = viewModel()
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        // Onboarding Screen
+        composable("onboarding") {
+            OnboardingScreen(
+                onComplete = {
+                    navController.navigate("sign_up_options") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Sign-Up Options Screen
+        composable("sign_up_options") {
+            SignUpOptionsScreen(navController, authViewModel)
+        }
+
+        // Login Screen
+        composable("login") {
+            LoginScreen(
+                viewModel = authViewModel,
+                // From the login screen, route users to the Sign-Up Options screen
+                // so they can choose between Google or Email registration.
+                onNeedAccountClicked = { navController.navigate("sign_up_options") },
+                onLoginSuccess = {
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Email Sign-Up Screen
+        composable("email_sign_up") {
+            EmailSignUpScreen(
+                viewModel = authViewModel,
+                onAlreadyUserClicked = { navController.navigate("login") },
+                onSignUpSuccess = {
+                    navController.navigate("login") {
+                        popUpTo("email_sign_up") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Main Screen (use the NavHost-level notesViewModel)
+        composable("main") {
+            MainScreen(
+                navController = navController,
+                recordingViewModel = recordingViewModel,
+                notesViewModel = notesViewModel
+            )
+        }
+
+        // Recording Screen
+        composable("recording") {
+            RecordingScreen(
+                navController = navController,
+                viewModel = recordingViewModel
+            )
+        }
+
+        // Transcription Screen with query arg: ?mode=edit
+        composable(
+            route = "transcription?mode={mode}",
+            arguments = listOf(
+                navArgument("mode") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = "view" // fallback when not provided
+                }
+            )
+        ) { backStackEntry ->
+            val startInEdit = backStackEntry.arguments?.getString("mode") == "edit"
+            TranscriptionScreen(
+                navController = navController,
+                viewModel = recordingViewModel,
+                startInEdit = startInEdit
+            )
+        }
+
+        // Settings Screen
+        composable("settings") {
+            SettingsScreen(
+                onBackPressed = { navController.popBackStack() },
+                onLogoutClicked = {
+                    authViewModel.signOut()
+                    navController.navigate("login") {
+                        popUpTo("main") { inclusive = true }
+                    }
+                },
+                viewModel = settingsViewModel
+            )
+        }
+
+        // Note Detail
+        composable("note_detail/{noteId}") { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getString("noteId") ?: return@composable
+            NoteDetailScreen(noteId, notesViewModel, navController)
+        }
+    }
+}
