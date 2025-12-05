@@ -56,6 +56,9 @@ class FirestoreSource(
 
     /** Add a new note document. */
     suspend fun addNote(note: Note) {
+        note.rawText = note.content
+        note.cleanText = note.content
+
         notesCollection()
             ?.document(note.id)
             ?.set(note)
@@ -64,6 +67,9 @@ class FirestoreSource(
 
     /** Update an existing note document. */
     suspend fun updateNote(note: Note) {
+        note.rawText = note.content
+        note.cleanText = note.content
+
         notesCollection()
             ?.document(note.id)
             ?.set(note)
