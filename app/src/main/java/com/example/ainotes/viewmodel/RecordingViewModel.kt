@@ -16,6 +16,8 @@ import com.example.ainotes.data.ai.NoteTitleGenerator
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.mlkit.nl.proofreader.ProofreadOptions
+import com.google.mlkit.nl.proofreader.Proofreader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +66,14 @@ class RecordingViewModel(
     private val notesRepository: NotesRepository = NotesRepository()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var currentTranscriptionId: String? = null
+
+    private val noteTextCleaner: NoteTextCleaner = NoteTextCleaner {
+        val options = ProofreadOptions.Builder()
+            .setLanguageTag(_languageTag.value)
+            .setInputType(ProofreadOptions.INPUT_TYPE_VOICE)
+            .build()
+        Proofreader.getClient(options)
+    }
 
     // ---- Public API ----
 
@@ -308,31 +318,26 @@ class RecordingViewModel(
         _recognizedText.value = normalized
         lastPartial = ""
 
-        // First update: rawText + mark AI as cleaning, initial cleanText = raw
         _recordingUiState.update {
             it.copy(
                 rawText = normalized,
-                cleanText = normalized,
                 isAiCleaning = true,
             )
         }
 
-        // Run the cleaner off the main thread
-        viewModelScope.launch(Dispatchers.IO) {
-            val cleaned = runCatching {
-                cleaner.clean(normalized)
-            }.getOrElse { throwable ->
-                Log.w("RecordingViewModel", "Failed to clean transcript", throwable)
-                normalized
-            }
+        viewModelScope.launch {
+            val cleaned = runCatching { noteTextCleaner.clean(normalized) }
+                .getOrElse {
+                    Log.w("RecordingViewModel", "Failed to clean transcript", it)
+                    normalized
+                }
 
-            _recordingUiState.update { state ->
-                state.copy(
+            _recordingUiState.update {
+                it.copy(
                     cleanText = cleaned,
                     isAiCleaning = false,
                 )
             }
-
             Log.d(
                 "RecordingViewModel",
                 "rawText=${_recordingUiState.value.rawText}, cleanText=${_recordingUiState.value.cleanText}"

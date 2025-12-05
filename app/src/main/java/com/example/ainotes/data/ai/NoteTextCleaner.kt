@@ -1,79 +1,101 @@
 package com.example.ainotes.data.ai
 
 import android.util.Log
-import com.google.mlkit.genai.common.FeatureStatus
-import com.google.mlkit.genai.proofreading.Proofreader
-import com.google.mlkit.genai.proofreading.ProofreadingRequest
+import com.example.ainotes.BuildConfig
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.mlkit.nl.proofreader.ProofreadOptions
+import com.google.mlkit.nl.proofreader.ProofreadRequest
+import com.google.mlkit.nl.proofreader.Proofreader
+import com.google.mlkit.nl.proofreader.ProofreaderClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 /**
- * Cleans note text using ML Kit's GenAI proofreading capability.
- *
- * - If the feature isn't available on the device, or any error happens,
- *   this will just return the original text.
- * - Safe to call from a coroutine; it does its work on Dispatchers.IO.
- *
- * NOTE: Right now this class is not wired into any ViewModel.
+ * Cleans note text using ML Kit's GenAI proofreading capability. The cleaner
+ * falls back to the original text when the feature is unavailable or any
+ * error occurs so existing flows remain stable.
  */
 class NoteTextCleaner(
-    // Provider that creates a Proofreader instance when called.
-    // We'll decide later where to pass context/options from.
-    private val clientProvider: () -> Proofreader
+    private val clientProvider: () -> ProofreaderClient = {
+        Proofreader.getClient(
+            ProofreadOptions.Builder()
+                .build()
+        )
+    }
 ) {
 
     suspend fun clean(text: String): String = withContext(Dispatchers.IO) {
         if (text.isBlank()) return@withContext text
 
         val client = runCatching { clientProvider() }.getOrElse { throwable ->
-            Log.w(TAG, "Unable to create ML Kit proofreader client", throwable)
-            return@withContext text
+            Log.w(TAG, "Unable to create ML Kit proofread client", throwable)
+            return@withContext cleanWithGemini(text)
         }
 
         try {
-            // 1) Check if feature is actually available on this device.
-            val status = runCatching {
-                client.checkFeatureStatus().get()
-            }.getOrElse { throwable ->
-                Log.w(TAG, "Failed to check proofreading feature status", throwable)
-                return@withContext text
+            val availability = runCatching { client.checkFeatureStatus().await() }
+                .getOrElse { throwable ->
+                    Log.w(TAG, "Failed to check proofreading availability", throwable)
+                    return@withContext cleanWithGemini(text)
+                }
+
+            val isAvailable = availability?.toString() == FEATURE_AVAILABLE
+            if (!isAvailable) {
+                return@withContext cleanWithGemini(text)
             }
 
-            if (status != FeatureStatus.AVAILABLE) {
-                Log.d(TAG, "Proofreading feature not available (status=$status)")
-                return@withContext text
-            }
+            val request = ProofreadRequest.fromText(text)
+            val result = runCatching { client.proofread(request).await() }
+                .getOrElse { throwable ->
+                    Log.w(TAG, "Proofreading failed", throwable)
+                    return@withContext cleanWithGemini(text)
+                }
 
-            // 2) Build the request with our input text.
-            val request = ProofreadingRequest.builder(text).build()
-
-            // 3) Run inference (non-streaming) and wait for result.
-            val result = runCatching {
-                client.runInference(request).get()
-            }.getOrElse { throwable ->
-                Log.w(TAG, "Proofreading inference failed", throwable)
-                return@withContext text
-            }
-
-            // 4) Take the first suggestion, if any.
-            val firstSuggestion = result.results.firstOrNull()
-            val corrected = firstSuggestion?.text
-
-            corrected?.takeIf { it.isNotBlank() } ?: text
+            result.correctedText?.takeIf { it.isNotBlank() } ?: cleanWithGemini(text)
         } catch (t: Throwable) {
-            Log.w(TAG, "Error during proofreading; returning original text", t)
-            text
+            Log.w(TAG, "Error cleaning text; falling back to Gemini", t)
+            cleanWithGemini(text)
         } finally {
             try {
                 client.close()
             } catch (_: Throwable) {
-                // Ignore close failures; best-effort cleanup.
+                // Ignore close failures to keep cleanup best-effort.
             }
+        }
+    }
+
+    private suspend fun cleanWithGemini(text: String): String {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank()) return text
+
+        val model = runCatching {
+            GenerativeModel(
+                modelName = GEMINI_MODEL_NAME,
+                apiKey = apiKey
+            )
+        }.getOrElse { throwable ->
+            Log.w(TAG, "Unable to create Gemini model", throwable)
+            return text
+        }
+
+        return runCatching {
+            model.generateContent(
+                """
+                You are improving note text captured by speech-to-text. Fix grammar and punctuation. Keep the same language as the input. Do not change meaning or remove information. Return only the corrected text.
+                
+                $text
+                """.trimIndent()
+            ).text?.takeIf { it.isNotBlank() } ?: text
+        }.getOrElse { throwable ->
+            Log.w(TAG, "Gemini cleaning failed; using original text", throwable)
+            text
         }
     }
 
     private companion object {
         private const val TAG = "NoteTextCleaner"
+        private const val GEMINI_MODEL_NAME = "gemini-1.5-flash"
+        private const val FEATURE_AVAILABLE = "AVAILABLE"
     }
 }
-
