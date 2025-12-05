@@ -11,14 +11,18 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ainotes.data.ai.NoteTextCleaner
 import com.example.ainotes.data.ai.NoteTitleGenerator
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.mlkit.nl.proofreader.ProofreadOptions
+import com.google.mlkit.nl.proofreader.Proofreader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.BreakIterator
@@ -40,6 +44,9 @@ class RecordingViewModel : ViewModel() {
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
 
+    private val _recordingUiState = MutableStateFlow(RecordingUiState())
+    val recordingUiState: StateFlow<RecordingUiState> = _recordingUiState
+
     private var speechRecognizer: SpeechRecognizer? = null
     private var lastPartial: String = ""
     private var controllerJob: Job? = null
@@ -57,6 +64,14 @@ class RecordingViewModel : ViewModel() {
     private val notesRepository: NotesRepository = NotesRepository()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var currentTranscriptionId: String? = null
+
+    private val noteTextCleaner: NoteTextCleaner = NoteTextCleaner {
+        val options = ProofreadOptions.Builder()
+            .setLanguageTag(_languageTag.value)
+            .setInputType(ProofreadOptions.INPUT_TYPE_VOICE)
+            .build()
+        Proofreader.getClient(options)
+    }
 
     // ---- Public API ----
 
@@ -137,7 +152,10 @@ class RecordingViewModel : ViewModel() {
     private fun resetTranscription(keepText: Boolean) {
         currentTranscriptionId = null
         lastPartial = ""
-        if (!keepText) _recognizedText.value = ""
+        if (!keepText) {
+            _recognizedText.value = ""
+            _recordingUiState.value = RecordingUiState()
+        }
     }
 
     // RecordingViewModel.kt
@@ -257,8 +275,35 @@ class RecordingViewModel : ViewModel() {
         var merged = mergeAppend(base, finalText)
         merged = dedupeTailBlock(merged)
 
-        _recognizedText.value = normalize(merged)
+        val normalized = normalize(merged)
+        _recognizedText.value = normalized
         lastPartial = ""
+
+        _recordingUiState.update {
+            it.copy(
+                rawText = normalized,
+                isAiCleaning = true,
+            )
+        }
+
+        viewModelScope.launch {
+            val cleaned = runCatching { noteTextCleaner.clean(normalized) }
+                .getOrElse {
+                    Log.w("RecordingViewModel", "Failed to clean transcript", it)
+                    normalized
+                }
+
+            _recordingUiState.update {
+                it.copy(
+                    cleanText = cleaned,
+                    isAiCleaning = false,
+                )
+            }
+            Log.d(
+                "RecordingViewModel",
+                "rawText=${_recordingUiState.value.rawText}, cleanText=${_recordingUiState.value.cleanText}"
+            )
+        }
     }
 
     // ---- Merge & dedupe helpers ----
