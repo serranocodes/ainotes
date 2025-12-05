@@ -1,10 +1,10 @@
 package com.example.ainotes.data.ai
 
 import android.util.Log
-import com.google.mlkit.nl.proofread.Proofread
-import com.google.mlkit.nl.proofread.ProofreadClient
-import com.google.mlkit.nl.proofread.ProofreadOptions
-import com.google.mlkit.nl.proofread.ProofreadRequest
+import com.google.mlkit.nl.proofreader.ProofreadOptions
+import com.google.mlkit.nl.proofreader.ProofreadRequest
+import com.google.mlkit.nl.proofreader.Proofreader
+import com.google.mlkit.nl.proofreader.ProofreaderClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -15,8 +15,8 @@ import kotlinx.coroutines.withContext
  * error occurs so existing flows remain stable.
  */
 class NoteTextCleaner(
-    private val clientProvider: () -> ProofreadClient = {
-        Proofread.getClient(
+    private val clientProvider: () -> ProofreaderClient = {
+        Proofreader.getClient(
             ProofreadOptions.Builder()
                 .build()
         )
