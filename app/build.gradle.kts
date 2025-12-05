@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ainotes"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -53,6 +53,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")            // bringIntoView, imePadding, SelectionContainer, etc.
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.mlkit:genai-summarization:1.0.0-beta1")
+    implementation("com.google.mlkit:genai-proofreading:1.0.0-beta1")
 
     // Compose + AndroidX
     implementation(libs.androidx.core.ktx)
