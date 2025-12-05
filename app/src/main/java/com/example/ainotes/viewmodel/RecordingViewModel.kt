@@ -16,8 +16,6 @@ import com.example.ainotes.data.ai.NoteTitleGenerator
 import com.example.ainotes.data.model.Note
 import com.example.ainotes.data.repository.NotesRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.mlkit.nl.proofreader.ProofreadOptions
-import com.google.mlkit.nl.proofreader.Proofreader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +28,9 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
-class RecordingViewModel : ViewModel() {
+class RecordingViewModel(
+    private val cleaner: NoteTextCleaner
+) : ViewModel() {
 
     private val _amplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _amplitude
@@ -52,7 +52,7 @@ class RecordingViewModel : ViewModel() {
     private var controllerJob: Job? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    //Languages
+    // Languages
     private val _languageTag = MutableStateFlow(Locale.getDefault().toLanguageTag())
     fun setLanguageTag(tag: String) { _languageTag.value = tag }
 
@@ -64,14 +64,6 @@ class RecordingViewModel : ViewModel() {
     private val notesRepository: NotesRepository = NotesRepository()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var currentTranscriptionId: String? = null
-
-    private val noteTextCleaner: NoteTextCleaner = NoteTextCleaner {
-        val options = ProofreadOptions.Builder()
-            .setLanguageTag(_languageTag.value)
-            .setInputType(ProofreadOptions.INPUT_TYPE_VOICE)
-            .build()
-        Proofreader.getClient(options)
-    }
 
     // ---- Public API ----
 
@@ -115,21 +107,54 @@ class RecordingViewModel : ViewModel() {
         resetTranscription(keepText = false)
     }
 
+    /**
+     * Save the current note using:
+     * - rawText from AI pipeline (or fallback to [text] param)
+     * - cleanText from AI pipeline (or fallback to raw)
+     * - content = cleanText (normalized)
+     */
     fun saveTranscription(text: String, onResult: (Boolean) -> Unit = {}) {
         val uid = auth.currentUser?.uid
-        if (uid == null) { onResult(false); return }
-        val normalized = normalize(text)
+        if (uid == null) {
+            onResult(false)
+            return
+        }
+
+        // Prefer the values from our AI pipeline; fall back to the incoming text.
+        val uiState = _recordingUiState.value
+        val raw = uiState.rawText.ifBlank { text }
+        val clean = uiState.cleanText.ifBlank { raw }
+        val normalizedClean = normalize(clean)
+
         viewModelScope.launch {
             try {
-                val generatedTitle = NoteTitleGenerator.generateTitle(normalized)
-                val note = if (currentTranscriptionId == null) Note(content = normalized)
-                else Note(id = currentTranscriptionId!!, content = normalized)
+                val generatedTitle = NoteTitleGenerator.generateTitle(normalizedClean)
+
+                val note = if (currentTranscriptionId == null) {
+                    Note(
+                        content = normalizedClean,
+                        rawText = raw,
+                        cleanText = normalizedClean
+                    )
+                } else {
+                    Note(
+                        id = currentTranscriptionId!!,
+                        content = normalizedClean,
+                        rawText = raw,
+                        cleanText = normalizedClean
+                    )
+                }
+
                 note.title = generatedTitle
 
-                if (currentTranscriptionId == null) notesRepository.addNote(note)
-                else notesRepository.updateNote(note)
+                if (currentTranscriptionId == null) {
+                    notesRepository.addNote(note)
+                } else {
+                    notesRepository.updateNote(note)
+                }
+
                 currentTranscriptionId = note.id
-                _recognizedText.value = normalized
+                _recognizedText.value = normalizedClean
                 resetTranscription(keepText = false)
                 onResult(true)
             } catch (e: Exception) {
@@ -158,11 +183,13 @@ class RecordingViewModel : ViewModel() {
         }
     }
 
-    // RecordingViewModel.kt
     private fun startListeningInternal() {
         val tag = _languageTag.value  // e.g., "es-ES", "en-US"
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, tag)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, tag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
@@ -191,7 +218,6 @@ class RecordingViewModel : ViewModel() {
         }
     }
 
-
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {}
         override fun onBeginningOfSpeech() {}
@@ -203,20 +229,20 @@ class RecordingViewModel : ViewModel() {
 
         override fun onBufferReceived(buffer: ByteArray?) {}
 
-        // IMPORTANT: do not force a restart here; wait for results/error
         override fun onEndOfSpeech() {
             // no-op: the service will deliver onResults or an error next
         }
 
         override fun onError(error: Int) {
-            // Recoverable errors -> start a new segment calmly
-            // 5: SPEECH_TIMEOUT, 6: NO_MATCH, 7: BUSY, 8: INSUFFICIENT_PERMISSIONS, 9: NETWORK
             if (_isRecording.value) restartAfterSegment()
             else _isTranscribing.value = false
         }
 
         override fun onResults(results: Bundle?) {
-            val finalText = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            val finalText = results
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+
             if (!finalText.isNullOrBlank()) commitFinal(finalText)
             _isTranscribing.value = _isRecording.value
             if (_isRecording.value) restartAfterSegment()
@@ -234,7 +260,10 @@ class RecordingViewModel : ViewModel() {
 
     /** Schedule the next start WITHOUT calling stopListening(), with debounce/throttle. */
     private fun restartAfterSegment() {
-        if (!_isRecording.value) { _isTranscribing.value = false; return }
+        if (!_isRecording.value) {
+            _isTranscribing.value = false
+            return
+        }
 
         val now = System.currentTimeMillis()
         val elapsed = now - lastRestartMs
@@ -263,7 +292,7 @@ class RecordingViewModel : ViewModel() {
         lastPartial = normalize(merged.removePrefix(base).trimStart())
     }
 
-    /** Commit final by stripping live partial and deduping. */
+    /** Commit final by stripping live partial and deduping, then run AI cleanup. */
     private fun commitFinal(finalText: String) {
         val current = _recognizedText.value
         val prevPartial = lastPartial
@@ -279,26 +308,31 @@ class RecordingViewModel : ViewModel() {
         _recognizedText.value = normalized
         lastPartial = ""
 
+        // First update: rawText + mark AI as cleaning, initial cleanText = raw
         _recordingUiState.update {
             it.copy(
                 rawText = normalized,
+                cleanText = normalized,
                 isAiCleaning = true,
             )
         }
 
-        viewModelScope.launch {
-            val cleaned = runCatching { noteTextCleaner.clean(normalized) }
-                .getOrElse {
-                    Log.w("RecordingViewModel", "Failed to clean transcript", it)
-                    normalized
-                }
+        // Run the cleaner off the main thread
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleaned = runCatching {
+                cleaner.clean(normalized)
+            }.getOrElse { throwable ->
+                Log.w("RecordingViewModel", "Failed to clean transcript", throwable)
+                normalized
+            }
 
-            _recordingUiState.update {
-                it.copy(
+            _recordingUiState.update { state ->
+                state.copy(
                     cleanText = cleaned,
                     isAiCleaning = false,
                 )
             }
+
             Log.d(
                 "RecordingViewModel",
                 "rawText=${_recordingUiState.value.rawText}, cleanText=${_recordingUiState.value.cleanText}"
@@ -308,7 +342,8 @@ class RecordingViewModel : ViewModel() {
 
     // ---- Merge & dedupe helpers ----
 
-    private fun normalize(s: String): String = s.replace(Regex("\\s+"), " ").trim()
+    private fun normalize(s: String): String =
+        s.replace(Regex("\\s+"), " ").trim()
 
     private fun mergeAppend(base: String, addition: String, windowWords: Int = 120): String {
         if (addition.isBlank()) return base
@@ -327,7 +362,10 @@ class RecordingViewModel : ViewModel() {
                 if (!tokensEqual(baseWords[baseWords.size - k + i], addWords[i])) ok = false
                 i++
             }
-            if (ok) { overlap = k; break }
+            if (ok) {
+                overlap = k
+                break
+            }
         }
         var remainder = if (overlap > 0) reconstruct(addWords.drop(overlap)) else reconstruct(addWords)
 
@@ -349,7 +387,10 @@ class RecordingViewModel : ViewModel() {
                         if (!tokensEqual(tail[i + j], prefix[j])) match = false
                         j++
                     }
-                    if (match) { cut = len; break@outer }
+                    if (match) {
+                        cut = len
+                        break@outer
+                    }
                 }
             }
             if (cut > 0) {
@@ -372,7 +413,7 @@ class RecordingViewModel : ViewModel() {
             var same = true
             var i = 0
             while (i < h && same) {
-                if (!tokensEqual(toks[n - 2*h + i], toks[n - h + i])) same = false
+                if (!tokensEqual(toks[n - 2 * h + i], toks[n - h + i])) same = false
                 i++
             }
             if (same) {
@@ -400,7 +441,8 @@ class RecordingViewModel : ViewModel() {
         return out
     }
 
-    private fun reconstruct(tokens: List<String>): String = tokens.joinToString(" ")
+    private fun reconstruct(tokens: List<String>): String =
+        tokens.joinToString(" ")
 
     private fun tokensEqual(a: String, b: String): Boolean {
         fun norm(t: String): String =

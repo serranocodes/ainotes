@@ -1,7 +1,7 @@
-// File: AppNavigation.kt
 package com.example.ainotes.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -9,21 +9,34 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.ainotes.data.ai.NoteTextCleanerProvider
 import com.example.ainotes.ui.screens.*
 import com.example.ainotes.viewmodel.AuthViewModel
 import com.example.ainotes.viewmodel.MainViewModel
 import com.example.ainotes.viewmodel.RecordingViewModel
+import com.example.ainotes.viewmodel.RecordingViewModelFactory
 import com.example.ainotes.viewmodel.SettingsViewModel
 import com.example.ainotes.viewmodel.NotesViewModel
+import java.util.Locale
 
 @Composable
 fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
     val navController: NavHostController = rememberNavController()
     val startDestination = if (startWithOnboarding) "onboarding" else "login"
 
+    val context = LocalContext.current
+    val languageTag = Locale.getDefault().toLanguageTag()
+
     // Provide ViewModels at the NavHost level to persist across screens
     val mainViewModel: MainViewModel = viewModel()
-    val recordingViewModel: RecordingViewModel = viewModel()
+    val recordingViewModel: RecordingViewModel = viewModel(
+        factory = RecordingViewModelFactory(
+            cleaner = NoteTextCleanerProvider.create(
+                context = context,
+                languageTag = languageTag
+            )
+        )
+    )
     val settingsViewModel: SettingsViewModel = viewModel()
     val notesViewModel: NotesViewModel = viewModel()
 
@@ -48,8 +61,6 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
         composable("login") {
             LoginScreen(
                 viewModel = authViewModel,
-                // From the login screen, route users to the Sign-Up Options screen
-                // so they can choose between Google or Email registration.
                 onNeedAccountClicked = { navController.navigate("sign_up_options") },
                 onLoginSuccess = {
                     navController.navigate("main") {
@@ -72,7 +83,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
-        // Main Screen (use the NavHost-level notesViewModel)
+        // Main Screen
         composable("main") {
             MainScreen(
                 navController = navController,
@@ -96,7 +107,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
                 navArgument("mode") {
                     type = NavType.StringType
                     nullable = true
-                    defaultValue = "view" // fallback when not provided
+                    defaultValue = "view"
                 }
             )
         ) { backStackEntry ->
@@ -122,7 +133,7 @@ fun AppNavigation(startWithOnboarding: Boolean, authViewModel: AuthViewModel) {
             )
         }
 
-        // Note Detail
+        // Note Detail Screen
         composable("note_detail/{noteId}") { backStackEntry ->
             val noteId = backStackEntry.arguments?.getString("noteId") ?: return@composable
             NoteDetailScreen(noteId, notesViewModel, navController)
